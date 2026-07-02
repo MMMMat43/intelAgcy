@@ -43,3 +43,8 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### IntelligentTestAgent local config (не коммитить: секреты/личные пути) ###
+.env
+.jdkhome
+
