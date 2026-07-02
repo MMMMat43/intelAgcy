@@ -1,0 +1,40 @@
+#
+# Поднимает n8n (low-code платформу) в Docker-контейнере.
+# Сам IntelligentTestAgent (Kotlin REST API) в Docker не запаковывается -
+# он продолжает запускаться локально через ".\run.ps1 serve" на порту 8080,
+# n8n внутри контейнера обращается к нему через host.docker.internal.
+#
+# Использование (после установки Docker Desktop):
+#   1. В одном окне: .\run.ps1 serve
+#   2. В другом окне: docker compose up -d
+#   3. Открыть http://localhost:5678 в браузере, создать учётку n8n
+#   4. Workflows -> Import from File -> integration/n8n/workflow.json
+#   5. URL в ноде "Call IntelligentTestAgent API" уже указывает на
+#      http://host.docker.internal:8080 - это адрес, по которому контейнер
+#      видит ваш компьютер (хост), где работает ".\run.ps1 serve". Менять
+#      не нужно. В теле запроса (sourcePath/outputDir) указывается реальный
+#      путь на хост-машине (Windows), потому что файл читает именно наш
+#      Kotlin-сервер на хосте, а не n8n внутри контейнера.
+#   6. Запустить workflow (кнопка "Execute workflow" в n8n)
+#
+# Остановить: docker compose down
+
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: intelligent-test-agent-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=Europe/Moscow
+    volumes:
+      - n8n_data:/home/node/.n8n
+    extra_hosts:
+      # Позволяет n8n внутри контейнера обращаться к нашему серверу,
+      # запущенному на хосте через ".\run.ps1 serve" (порт 8080).
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  n8n_data:

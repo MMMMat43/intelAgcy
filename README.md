@@ -173,24 +173,49 @@ curl -X POST http://localhost:8080/generate-tests \
 }
 ```
 
-## Интеграция с n8n
+## Интеграция с n8n (визуальный low-code интерфейс)
 
-В каталоге `integration/n8n/workflow.json` находится готовый экспорт
-workflow для [n8n](https://n8n.io/) с HTTP-нодой, вызывающей
-`POST /generate-tests` этого API.
+Лучший способ поднять n8n на Windows — через Docker (обычная `npm install -g n8n`
+на момент написания этого README ломалась из-за внутренних конфликтов
+версий в самом пакете n8n — это известная причина, почему n8n сам рекомендует
+именно Docker).
 
-### Импорт workflow
+### Шаг 1. Установите Docker Desktop (один раз)
 
-1. Откройте n8n (self-hosted или n8n cloud).
-2. В верхнем меню выберите **Workflows → Import from File**.
-3. Укажите файл `integration/n8n/workflow.json` из этого репозитория.
-4. При необходимости отредактируйте ноду **Call IntelligentTestAgent API**:
-   - измените URL, если сервер запущен не на `http://localhost:8080`;
-   - настройте `sourcePath`/`outputDir` под свой сценарий (через входные
-     данные триггера или прямо в теле запроса JSON-ноды).
-5. Запустите workflow вручную (**Manual Trigger**) или замените триггер на
-   Webhook/расписание под свои нужды.
+Скачайте и установите [Docker Desktop для Windows](https://www.docker.com/products/docker-desktop/),
+перезагрузите компьютер, если установщик это попросит, и убедитесь, что
+Docker Desktop запущен (иконка кита в трее в трейе).
 
-Postoянно работающий инстанс n8n не входит в состав этого репозитория —
-предполагается, что пользователь запускает свой собственный n8n (например,
-через `npx n8n` или Docker) и импортирует workflow в него.
+### Шаг 2. Запустите оба компонента (два отдельных окна)
+
+```powershell
+# Окно 1: наш REST API (остаётся работать пока окно открыто)
+.\run.ps1 serve
+
+# Окно 2: n8n в Docker
+.\run.ps1 n8n-up
+```
+
+После этого откройте в браузере **http://localhost:5678** — это и есть визуальный
+интерфейс n8n. При первом заходе он попросит создать локальную учётку
+(email + пароль, хранятся только локально в контейнере).
+
+### Шаг 3. Импортируйте готовый workflow
+
+1. В n8n нажмите **Workflows → Import from File**.
+2. Выберите файл `integration/n8n/workflow.json` из этого репозитория.
+3. В импортированном workflow будут две ноды: **Manual Trigger** и **Call
+   IntelligentTestAgent API** (HTTP-запрос к `http://host.docker.internal:8080/generate-tests`
+   с готовым путём к `SampleCalculator.java` из этого репозитория — менять
+   ничего не нужно для первого запуска).
+4. Нажмите **Execute workflow** — n8n визуально покажет, как запрос ушёл в
+   наш API, и вернётся ответ (количество функций/тест-кейсов, путь к файлам).
+5. Чтобы проанализировать свой файл, откройте ноду **Call IntelligentTestAgent
+   API** и измените `sourcePath` в теле запроса на свой путь (на хост-машине,
+   например `C:/work/progs/IntelligentTestAgent/src/test/resources/SampleStringUtils.java`).
+
+### Остановка
+
+```powershell
+.\run.ps1 n8n-down
+```

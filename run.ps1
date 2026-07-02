@@ -11,6 +11,8 @@
         .\run.ps1 analyze  -Source path\To\File.java
         .\run.ps1 generate -Source path\To\File.java [-Output path]
         .\run.ps1 serve    [-Port 8080]
+        .\run.ps1 n8n-up
+        .\run.ps1 n8n-down
 
     The LLM API key for real neural-network calls is read from a .env file
     in the project root (see .env.example) - no need to set environment
@@ -20,7 +22,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'help')]
+    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'n8n-up', 'n8n-down', 'help')]
     [string]$Action = 'help',
 
     [string]$Source,
@@ -181,6 +183,23 @@ switch ($Action) {
         Write-Host "Starting REST API on port $Port (Ctrl+C to stop)..." -ForegroundColor Cyan
         & $gradlew runServer --no-daemon
     }
+    'n8n-up' {
+        $docker = Get-Command docker -ErrorAction SilentlyContinue
+        if (-not $docker) {
+            Write-Host "Docker was not found. Install Docker Desktop first:" -ForegroundColor Red
+            Write-Host "    https://www.docker.com/products/docker-desktop/" -ForegroundColor Yellow
+            exit 1
+        }
+        docker compose up -d
+        Write-Host ""
+        Write-Host "n8n is starting. Open http://localhost:5678 in your browser" -ForegroundColor Green
+        Write-Host "(first start may take a few seconds while n8n initializes)." -ForegroundColor Green
+        Write-Host "Remember to also run '.\run.ps1 serve' in another window so" -ForegroundColor Green
+        Write-Host "n8n has something to call." -ForegroundColor Green
+    }
+    'n8n-down' {
+        docker compose down
+    }
     default {
         Write-Host ""
         Write-Host "IntelligentTestAgent - quick start" -ForegroundColor Cyan
@@ -195,6 +214,8 @@ switch ($Action) {
         Write-Host "                                                     - generate tests into your own folder"
         Write-Host "  .\run.ps1 serve                                    - REST API on port 8080 (for n8n)"
         Write-Host "  .\run.ps1 serve -Port 9090                         - REST API on a different port"
+        Write-Host "  .\run.ps1 n8n-up                                   - start n8n in Docker (requires Docker Desktop)"
+        Write-Host "  .\run.ps1 n8n-down                                 - stop n8n"
         Write-Host ""
         Write-Host "To enable real neural-network calls, copy .env.example to .env" -ForegroundColor DarkGray
         Write-Host "and fill in your LLM_API_KEY. Without a key, only heuristics are used." -ForegroundColor DarkGray
