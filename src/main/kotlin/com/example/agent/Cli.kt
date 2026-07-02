@@ -1,19 +1,32 @@
 package com.example.agent
 
+import com.example.agent.source.LocalFileSourceLoader
+
 /**
  * Точка входа CLI интеллектуального агента.
  *
- * На этом этапе (Task 01) поддерживается только флаг `--source <path>`,
- * который просто выводит переданный путь. Реальная логика загрузки
- * исходников и анализа кода будет добавлена в задачах 02/03.
+ * На этом этапе (Task 02) поддерживается флаг `--source <path>`, который
+ * загружает Java-исходники (файл или директория) через [LocalFileSourceLoader]
+ * и печатает количество найденных `.java`-файлов. Реальный анализ кода будет
+ * добавлен в Task 03.
  */
 fun main(args: Array<String>) {
     val source = parseSourceArgument(args)
-    if (source != null) {
-        println("Source: $source")
-    } else {
+    if (source == null) {
         println("Usage: --source <path>")
+        return
     }
+
+    val files = try {
+        LocalFileSourceLoader().load(source)
+    } catch (e: IllegalArgumentException) {
+        println("Source: $source")
+        println("Error: ${e.message}")
+        return
+    }
+
+    println("Source: $source")
+    println("Found ${files.size} Java source file(s)")
 }
 
 internal fun parseSourceArgument(args: Array<String>): String? {

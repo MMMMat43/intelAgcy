@@ -42,7 +42,7 @@
 
 ## Task Checklist
 - [x] `task-01-project-skeleton.md`: Доменная модель и скелет проекта — Suggested agent: Code — Covers: R1, R6
-- [ ] `task-02-source-integration.md`: Модуль интеграции с исходниками — Suggested agent: Code — Covers: R1
+- [x] `task-02-source-integration.md`: Модуль интеграции с исходниками — Suggested agent: Code — Covers: R1
 - [ ] `task-03-code-analysis.md`: Анализ Java-кода (JavaParser) — Suggested agent: Code — Covers: R1, S1
 - [ ] `task-04-llm-client.md`: LLM-клиент (OkHttp) — Suggested agent: Code — Covers: R2
 - [ ] `task-05-test-scenario-generation.md`: Генерация тестовых сценариев — Suggested agent: Code — Covers: R2
