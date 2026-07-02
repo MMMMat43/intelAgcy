@@ -47,7 +47,7 @@
 - [x] `task-04-llm-client.md`: LLM-клиент (OkHttp) — Suggested agent: Code — Covers: R2
 - [x] `task-05-test-scenario-generation.md`: Генерация тестовых сценариев — Suggested agent: Code — Covers: R2
 - [x] `task-06-test-codegen-storage.md`: Генерация JUnit5-кода и хранение артефактов — Suggested agent: Code — Covers: R3, R5
-- [ ] `task-07-rest-api-n8n.md`: Ktor REST API + интеграция с n8n — Suggested agent: Code — Covers: R4, S3
+- [x] `task-07-rest-api-n8n.md`: Ktor REST API + интеграция с n8n — Suggested agent: Code — Covers: R4, S3
 - [ ] `task-08-e2e-verification.md`: Сквозная проверка и метрики — Suggested agent: Test — Covers: R6, S1, S2, S4
 - [x] `task-09-pz-document-update.md`: Обновление текста ПЗ (Kotlin/JUnit5 + новизна) — Suggested agent: Code — Covers: R7, S5
 

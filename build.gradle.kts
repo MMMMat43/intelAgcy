@@ -35,10 +35,21 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("io.ktor:ktor-server-test-host:2.3.6")
+    testImplementation("io.ktor:ktor-client-content-negotiation:2.3.6")
 }
 
 application {
     mainClass.set("com.example.agent.CliKt") // для CLI
+}
+
+// Отдельный таск для запуска REST API сервера (Task 07), чтобы не менять
+// основной mainClass приложения (он остаётся CLI). Запуск: `./gradlew runServer`.
+tasks.register<JavaExec>("runServer") {
+    group = "application"
+    description = "Runs the REST API server (com.example.agent.api.ServerKt)"
+    mainClass.set("com.example.agent.api.ServerKt")
+    classpath = sourceSets["main"].runtimeClasspath
 }
 
 tasks.test {

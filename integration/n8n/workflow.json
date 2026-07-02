@@ -1,0 +1,56 @@
+{
+  "name": "IntelligentTestAgent - Generate Tests",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1f9b1f3a-1a2b-4c3d-8e4f-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/generate-tests",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"sourcePath\": \"{{$json[\"sourcePath\"] || \"/path/to/YourFile.java\"}}\",\n  \"outputDir\": \"{{$json[\"outputDir\"] || \"/tmp/intelligent-test-agent-output\"}}\"\n}",
+        "options": {}
+      },
+      "id": "1f9b1f3a-1a2b-4c3d-8e4f-000000000002",
+      "name": "Call IntelligentTestAgent API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Call IntelligentTestAgent API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "versionId": "00000000-0000-0000-0000-000000000000",
+  "meta": {
+    "instanceId": "intelligent-test-agent-example"
+  }
+}
