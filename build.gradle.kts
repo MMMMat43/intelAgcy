@@ -34,6 +34,7 @@ dependencies {
     // Тестирование
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }
 
 application {
