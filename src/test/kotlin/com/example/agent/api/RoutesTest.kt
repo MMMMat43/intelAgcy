@@ -1,9 +1,13 @@
 package com.example.agent.api
 
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.post
 import io.ktor.client.request.get
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -70,6 +74,67 @@ class RoutesTest {
         val response = client.post("/analyze") {
             contentType(ContentType.Application.Json)
             setBody("""{"sourcePath": "/this/path/does/not/exist/Sample.java"}""")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("\"error\""), "Expected error field in response body")
+    }
+
+    @Test
+    fun `POST generate-tests-upload with a real Java file returns 200 and a summary`(@TempDir tempDir: Path) = testApplication {
+        application {
+            configureSerialization()
+            configureRouting()
+        }
+
+        val javaContent = """
+            public class Sample {
+                public int add(int a, int b) {
+                    return a + b;
+                }
+            }
+        """.trimIndent()
+
+        val outputDir = tempDir.resolve("out").toString()
+
+        val response = client.post("/generate-tests-upload") {
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append("outputDir", outputDir)
+                        append(
+                            "file",
+                            javaContent.toByteArray(),
+                            Headers.build {
+                                append(HttpHeaders.ContentDisposition, "filename=\"Sample.java\"")
+                            }
+                        )
+                    }
+                )
+            )
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"functionsCount\""), "Expected functionsCount field in response: $body")
+        assertTrue(Files.exists(Path.of(outputDir, "analysis.json")), "Expected analysis.json to be written to outputDir")
+    }
+
+    @Test
+    fun `POST generate-tests-upload without a file part returns 400`() = testApplication {
+        application {
+            configureSerialization()
+            configureRouting()
+        }
+
+        val response = client.post("/generate-tests-upload") {
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append("outputDir", "/tmp/whatever")
+                    }
+                )
+            )
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)

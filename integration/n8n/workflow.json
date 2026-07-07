@@ -1,27 +1,51 @@
 {
-  "name": "IntelligentTestAgent - Generate Tests",
+  "name": "IntelligentTestAgent - Upload and Generate Tests",
   "nodes": [
     {
-      "parameters": {},
-      "id": "1f9b1f3a-1a2b-4c3d-8e4f-000000000001",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "parameters": {
+        "formTitle": "IntelligentTestAgent - Upload Java file",
+        "formDescription": "Choose a .java file to analyze and generate JUnit5 tests for.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Java file",
+              "fieldType": "file",
+              "requiredField": true,
+              "acceptFileTypes": ".java",
+              "multipleFiles": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2c9b1f3a-1a2b-4c3d-8e4f-000000000010",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
       "position": [
         240,
         300
-      ]
+      ],
+      "webhookId": "intelligent-test-agent-upload-form"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "http://agent:8080/generate-tests",
+        "url": "http://agent:8080/generate-tests-upload",
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\n  \"sourcePath\": \"/data/samples/SampleCalculator.java\",\n  \"outputDir\": \"/data/output\"\n}",
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "Java_file"
+            }
+          ]
+        },
         "options": {}
       },
-      "id": "1f9b1f3a-1a2b-4c3d-8e4f-000000000002",
+      "id": "2c9b1f3a-1a2b-4c3d-8e4f-000000000011",
       "name": "Call IntelligentTestAgent API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -32,7 +56,7 @@
     }
   ],
   "connections": {
-    "Manual Trigger": {
+    "On form submission": {
       "main": [
         [
           {
