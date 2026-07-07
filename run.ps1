@@ -201,6 +201,14 @@ switch ($Action) {
             exit 1
         }
 
+        # Make sure the host-side output folder exists BEFORE the container
+        # mounts it. If this folder gets deleted while the agent container is
+        # already running (its volume mounted), Docker Desktop on Windows can
+        # leave the mount in a broken state inside the container, causing
+        # confusing request-parsing errors on /generate-tests. Recreating it
+        # here, before (re)starting the container, avoids that entirely.
+        New-Item -ItemType Directory -Force -Path (Join-Path $ProjectRoot 'build\agent-output') | Out-Null
+
         Write-Host "Building and starting the full stack (agent + n8n)..." -ForegroundColor Cyan
         Write-Host "First run may take a few minutes (downloading base images and" -ForegroundColor DarkGray
         Write-Host "Gradle dependencies inside the build container)." -ForegroundColor DarkGray
