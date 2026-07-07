@@ -89,7 +89,19 @@ fun Application.configureRouting(pipelineService: PipelineService = PipelineServ
                         }
                         is PartData.FileItem -> {
                             if (part.name == "file" || part.name == null) {
-                                val target = Files.createTempFile(uploadsDir, "upload-", ".java")
+                                // The compiler (see InMemoryJavaCompiler) infers the
+                                // expected public class name from the file's name, so
+                                // the temp file MUST keep the original uploaded file
+                                // name (e.g. "SampleCalculator.java") rather than a
+                                // random name - otherwise compilation silently fails
+                                // to match the public class and real assertions can
+                                // never be generated, only TODO placeholders.
+                                val safeName = sanitizeUploadedFileName(part.originalFileName)
+                                // Each upload gets its own subdirectory so concurrent
+                                // uploads with the same original file name never
+                                // collide with each other.
+                                val uploadScratchDir = Files.createTempDirectory(uploadsDir, "upload-")
+                                val target = uploadScratchDir.resolve(safeName)
                                 part.streamProvider().use { input ->
                                     Files.newOutputStream(target).use { output -> input.copyTo(output) }
                                 }
@@ -126,7 +138,10 @@ fun Application.configureRouting(pipelineService: PipelineService = PipelineServ
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, ErrorResponse(error = e.message ?: "Internal error"))
             } finally {
-                uploadedFile?.let { runCatching { Files.deleteIfExists(it) } }
+                // Delete the whole per-upload scratch directory (not just the
+                // file itself), since the file now lives inside its own
+                // dedicated temp subdirectory (see sanitizeUploadedFileName usage above).
+                uploadedFile?.parent?.let { runCatching { it.toFile().deleteRecursively() } }
             }
         }
     }
@@ -139,6 +154,23 @@ fun Application.configureRouting(pipelineService: PipelineService = PipelineServ
  * temp directory when that path does not exist (e.g. when running outside
  * Docker via `.\run.ps1 serve`).
  */
+/**
+ * Preserves the original uploaded file name (needed so the Java compiler's
+ * "file name must match the public class name" rule is satisfied - see the
+ * comment at the call site), while defending against path traversal
+ * (`../`), absolute paths, and empty/missing names, and normalizing the
+ * extension to `.java` regardless of what the client sent.
+ */
+private fun sanitizeUploadedFileName(originalFileName: String?): String {
+    val baseName = (originalFileName ?: "Uploaded")
+        .substringAfterLast('/')
+        .substringAfterLast('\\')
+        .removeSuffix(".java")
+        .ifBlank { "Uploaded" }
+        .replace(Regex("[^A-Za-z0-9_$]"), "_")
+    return "$baseName.java"
+}
+
 private fun resolveUploadsDir(): Path {
     val dockerUploadsDir = Path.of("/data/uploads")
     if (Files.isDirectory(dockerUploadsDir) || runCatching { Files.createDirectories(dockerUploadsDir) }.isSuccess) {
