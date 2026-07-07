@@ -1,0 +1,10 @@
+.git
+.gradle
+build
+.idea
+.kotlin
+.tasks
+.veai
+*.iml
+.env
+.jdkhome

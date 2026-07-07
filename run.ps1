@@ -11,8 +11,8 @@
         .\run.ps1 analyze  -Source path\To\File.java
         .\run.ps1 generate -Source path\To\File.java [-Output path]
         .\run.ps1 serve    [-Port 8080]
-        .\run.ps1 n8n-up
-        .\run.ps1 n8n-down
+        .\run.ps1 up        (Docker: whole stack - agent + n8n, one command)
+        .\run.ps1 down      (Docker: stop the whole stack)
 
     The LLM API key for real neural-network calls is read from a .env file
     in the project root (see .env.example) - no need to set environment
@@ -22,7 +22,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'n8n-up', 'n8n-down', 'help')]
+    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'up', 'down', 'help')]
     [string]$Action = 'help',
 
     [string]$Source,
@@ -183,21 +183,62 @@ switch ($Action) {
         Write-Host "Starting REST API on port $Port (Ctrl+C to stop)..." -ForegroundColor Cyan
         & $gradlew runServer --no-daemon
     }
-    'n8n-up' {
+    'up' {
         $docker = Get-Command docker -ErrorAction SilentlyContinue
         if (-not $docker) {
             Write-Host "Docker was not found. Install Docker Desktop first:" -ForegroundColor Red
             Write-Host "    https://www.docker.com/products/docker-desktop/" -ForegroundColor Yellow
             exit 1
         }
-        docker compose up -d
+
+        try {
+            docker version --format '{{.Server.Version}}' 2>&1 | Out-Null
+        } catch { }
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Docker was found but does not seem to be running." -ForegroundColor Red
+            Write-Host "Please start Docker Desktop and wait for it to finish initializing," -ForegroundColor Yellow
+            Write-Host "then run '.\run.ps1 up' again." -ForegroundColor Yellow
+            exit 1
+        }
+
+        Write-Host "Building and starting the full stack (agent + n8n)..." -ForegroundColor Cyan
+        Write-Host "First run may take a few minutes (downloading base images and" -ForegroundColor DarkGray
+        Write-Host "Gradle dependencies inside the build container)." -ForegroundColor DarkGray
+        docker compose up --build -d
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "docker compose up failed - see the output above for details." -ForegroundColor Red
+            exit 1
+        }
+
         Write-Host ""
-        Write-Host "n8n is starting. Open http://localhost:5678 in your browser" -ForegroundColor Green
-        Write-Host "(first start may take a few seconds while n8n initializes)." -ForegroundColor Green
-        Write-Host "Remember to also run '.\run.ps1 serve' in another window so" -ForegroundColor Green
-        Write-Host "n8n has something to call." -ForegroundColor Green
+        Write-Host "Waiting for the agent's REST API to become ready..." -ForegroundColor Cyan
+        $ready = $false
+        $deadline = (Get-Date).AddSeconds(60)
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $response = Invoke-RestMethod -Uri "http://localhost:8080/health" -Method Get -TimeoutSec 3
+                if ($response.status -eq "ok") {
+                    $ready = $true
+                    break
+                }
+            } catch {
+                Start-Sleep -Seconds 2
+            }
+        }
+
+        Write-Host ""
+        if ($ready) {
+            Write-Host "Everything is ready! Open your browser at:" -ForegroundColor Green
+            Write-Host "  Agent API health check: http://localhost:8080/health" -ForegroundColor Green
+            Write-Host "  n8n (visual interface): http://localhost:5678" -ForegroundColor Green
+        } else {
+            Write-Host "The agent did not respond within 60 seconds." -ForegroundColor Yellow
+            Write-Host "It might still be starting up - check logs with:" -ForegroundColor Yellow
+            Write-Host "  docker compose logs -f agent" -ForegroundColor Yellow
+            Write-Host "n8n should still be reachable at: http://localhost:5678" -ForegroundColor Yellow
+        }
     }
-    'n8n-down' {
+    'down' {
         docker compose down
     }
     default {
@@ -212,10 +253,14 @@ switch ($Action) {
         Write-Host "                                                       (artifacts in build\agent-output)"
         Write-Host "  .\run.ps1 generate -Source path\to\File.java -Output my_folder"
         Write-Host "                                                     - generate tests into your own folder"
-        Write-Host "  .\run.ps1 serve                                    - REST API on port 8080 (for n8n)"
+        Write-Host "  .\run.ps1 serve                                    - REST API on port 8080 (local JDK, no Docker)"
         Write-Host "  .\run.ps1 serve -Port 9090                         - REST API on a different port"
-        Write-Host "  .\run.ps1 n8n-up                                   - start n8n in Docker (requires Docker Desktop)"
-        Write-Host "  .\run.ps1 n8n-down                                 - stop n8n"
+        Write-Host ""
+        Write-Host "  .\run.ps1 up                                       - ONE COMMAND: build + start agent + n8n in Docker"
+        Write-Host "                                                       (requires Docker Desktop)"
+        Write-Host "  .\run.ps1 down                                     - stop the whole Docker stack"
+        Write-Host ""
+        Write-Host "Recommended for a full demo: .\run.ps1 up" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "To enable real neural-network calls, copy .env.example to .env" -ForegroundColor DarkGray
         Write-Host "and fill in your LLM_API_KEY. Without a key, only heuristics are used." -ForegroundColor DarkGray

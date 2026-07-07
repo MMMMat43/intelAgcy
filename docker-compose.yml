@@ -1,29 +1,56 @@
 #
-# Поднимает n8n (low-code платформу) в Docker-контейнере.
-# Сам IntelligentTestAgent (Kotlin REST API) в Docker не запаковывается -
-# он продолжает запускаться локально через ".\run.ps1 serve" на порту 8080,
-# n8n внутри контейнера обращается к нему через host.docker.internal.
+# Единый стек IntelligentTestAgent: наш Kotlin REST API сервер (Ktor) + n8n
+# (low-code платформа) в одной Docker Compose сети.
 #
-# Использование (после установки Docker Desktop):
-#   1. В одном окне: .\run.ps1 serve
-#   2. В другом окне: docker compose up -d
-#   3. Открыть http://localhost:5678 в браузере, создать учётку n8n
-#   4. Workflows -> Import from File -> integration/n8n/workflow.json
-#   5. URL в ноде "Call IntelligentTestAgent API" уже указывает на
-#      http://host.docker.internal:8080 - это адрес, по которому контейнер
-#      видит ваш компьютер (хост), где работает ".\run.ps1 serve". Менять
-#      не нужно. В теле запроса (sourcePath/outputDir) указывается реальный
-#      путь на хост-машине (Windows), потому что файл читает именно наш
-#      Kotlin-сервер на хосте, а не n8n внутри контейнера.
-#   6. Запустить workflow (кнопка "Execute workflow" в n8n)
+# Запуск ОДНОЙ командой (поднимет оба сервиса, соберёт образ агента, если
+# нужно):
+#   docker compose up --build -d
+#   (или проще: .\run.ps1 up)
 #
-# Остановить: docker compose down
+# Первая сборка образа агента может занять несколько минут - скачиваются
+# базовые Docker-образы (eclipse-temurin) и зависимости Gradle внутри
+# контейнера сборки. Повторные запуски намного быстрее благодаря кэшу
+# слоёв Docker.
+#
+# Остановить:
+#   docker compose down
+#   (или: .\run.ps1 down)
+#
+# Логи:
+#   docker compose logs -f agent
+#   docker compose logs -f n8n
+#
+# После запуска:
+#   - наш REST API:  http://localhost:8080/health
+#   - интерфейс n8n: http://localhost:5678
 
 services:
+  agent:
+    build: .
+    container_name: intelligent-test-agent-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://api.openai.com/v1}
+    volumes:
+      # Примеры Java-файлов для демонстрации (доступны агенту по пути
+      # /data/samples/... - см. integration/n8n/workflow.json).
+      - ./src/test/resources:/data/samples:ro
+      # Сюда агент сохраняет сгенерированные артефакты (analysis.json,
+      # test-cases.json, сгенерированный Kotlin-код тестов). Папка
+      # ./build/agent-output появится на хосте автоматически.
+      - ./build/agent-output:/data/output
+
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: intelligent-test-agent-n8n
     restart: unless-stopped
+    depends_on:
+      - agent
     ports:
       - "5678:5678"
     environment:
@@ -31,10 +58,6 @@ services:
       - GENERIC_TIMEZONE=Europe/Moscow
     volumes:
       - n8n_data:/home/node/.n8n
-    extra_hosts:
-      # Позволяет n8n внутри контейнера обращаться к нашему серверу,
-      # запущенному на хосте через ".\run.ps1 serve" (порт 8080).
-      - "host.docker.internal:host-gateway"
 
 volumes:
   n8n_data:
