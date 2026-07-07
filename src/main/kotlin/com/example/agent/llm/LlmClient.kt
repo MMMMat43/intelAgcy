@@ -37,7 +37,10 @@ interface LlmClient {
 class OpenAiCompatibleLlmClient(
     private val config: LlmConfig,
     connectTimeoutSeconds: Long = 30,
-    readTimeoutSeconds: Long = 30
+    // 90 секунд по умолчанию (вместо 30) - локальная модель (Ollama) на
+    // CPU заметно медленнее облачного OpenAI, особенно при первом
+    // запросе (прогрев модели в память).
+    readTimeoutSeconds: Long = 90
 ) : LlmClient {
 
     private val objectMapper: ObjectMapper = jacksonObjectMapper()

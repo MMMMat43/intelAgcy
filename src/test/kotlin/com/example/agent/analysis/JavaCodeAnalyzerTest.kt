@@ -122,4 +122,59 @@ class JavaCodeAnalyzerTest {
 
         assertEquals(3, function.cyclomaticComplexity)
     }
+
+    @Test
+    fun `package declaration is extracted into CodeStructure packageName`() {
+        val source = """
+            package com.example.demo;
+
+            public class Simple {
+                public int add(int a, int b) {
+                    return a + b;
+                }
+            }
+        """.trimIndent()
+
+        val structure = analyzer.analyze("Simple.java", listOf(JavaSourceFile("Simple.java", source)))
+
+        assertEquals("com.example.demo", structure.packageName)
+    }
+
+    @Test
+    fun `missing package declaration results in empty packageName`() {
+        val source = """
+            public class Simple {
+                public int add(int a, int b) {
+                    return a + b;
+                }
+            }
+        """.trimIndent()
+
+        val structure = analyzer.analyze("Simple.java", listOf(JavaSourceFile("Simple.java", source)))
+
+        assertEquals("", structure.packageName)
+    }
+
+    @Test
+    fun `static method is flagged as isStatic true, instance method as false`() {
+        val source = """
+            public class Utils {
+                public static int staticAdd(int a, int b) {
+                    return a + b;
+                }
+
+                public int instanceAdd(int a, int b) {
+                    return a + b;
+                }
+            }
+        """.trimIndent()
+
+        val structure = analyzer.analyze("Utils.java", listOf(JavaSourceFile("Utils.java", source)))
+
+        val staticMethod = structure.functions.first { it.name == "staticAdd" }
+        val instanceMethod = structure.functions.first { it.name == "instanceAdd" }
+
+        assertTrue(staticMethod.isStatic)
+        assertTrue(!instanceMethod.isStatic)
+    }
 }

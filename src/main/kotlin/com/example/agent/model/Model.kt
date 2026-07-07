@@ -33,13 +33,20 @@ data class FunctionInfo(
     val branches: List<BranchInfo>,
     val loops: List<LoopInfo>,
     val exceptions: List<ExceptionInfo>,
-    val cyclomaticComplexity: Int
+    val cyclomaticComplexity: Int,
+    // Признак модификатора `static` у метода. По умолчанию false, чтобы не
+    // ломать существующие места создания FunctionInfo без этого поля.
+    val isStatic: Boolean = false
 )
 
 data class CodeStructure(
     val sourcePath: String,
     val language: String, // "java"
-    val functions: List<FunctionInfo>
+    val functions: List<FunctionInfo>,
+    // Имя пакета анализируемого класса (пусто, если package не объявлен).
+    // По умолчанию "", чтобы не ломать существующие места создания
+    // CodeStructure без этого поля.
+    val packageName: String = ""
 )
 
 data class TestCase(

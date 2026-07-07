@@ -51,27 +51,47 @@ import com.github.javaparser.ast.stmt.WhileStmt
  */
 class JavaCodeAnalyzer {
 
+    /**
+     * Извлекает имя пакета анализируемого проекта.
+     *
+     * УПРОЩЕНИЕ: если переданные файлы объявляют разные package (несколько
+     * классов в разных пакетах в одном запросе), берётся package ПЕРВОГО
+     * файла с непустым package в порядке списка [files]. Для типичного
+     * сценария (анализ одного файла/одного класса) это ведёт себя ожидаемо;
+     * для многофайловых мульти-package проектов это заведомое упрощение,
+     * достаточное для того, чтобы сгенерированный тестовый код мог
+     * обращаться к анализируемому классу без явного import (см.
+     * [com.example.agent.codegen.JUnit5TestCodeGenerator]).
+     */
     fun analyze(sourcePath: String, files: List<JavaSourceFile>): CodeStructure {
-        val functions = files.flatMap { file -> analyzeFile(file) }
+        val compilationUnits = files.mapNotNull { file ->
+            try {
+                StaticJavaParser.parse(file.content)
+            } catch (e: ParseProblemException) {
+                // Файл с синтаксическими ошибками пропускается: анализ остальных
+                // файлов не должен прерываться из-за одного некорректного файла.
+                null
+            }
+        }
+
+        val functions = compilationUnits.flatMap { compilationUnit ->
+            compilationUnit.findAll(MethodDeclaration::class.java).map { method -> analyzeMethod(method) }
+        }
+
+        val packageName = compilationUnits
+            .firstNotNullOfOrNull { compilationUnit ->
+                compilationUnit.packageDeclaration
+                    .map { it.nameAsString }
+                    .filter { it.isNotBlank() }
+                    .orElse(null)
+            } ?: ""
+
         return CodeStructure(
             sourcePath = sourcePath,
             language = "java",
-            functions = functions
+            functions = functions,
+            packageName = packageName
         )
-    }
-
-    private fun analyzeFile(file: JavaSourceFile): List<FunctionInfo> {
-        val compilationUnit = try {
-            StaticJavaParser.parse(file.content)
-        } catch (e: ParseProblemException) {
-            // Файл с синтаксическими ошибками пропускается: анализ остальных
-            // файлов не должен прерываться из-за одного некорректного файла.
-            return emptyList()
-        }
-
-        return compilationUnit.findAll(MethodDeclaration::class.java).map { method ->
-            analyzeMethod(method)
-        }
     }
 
     private fun analyzeMethod(method: MethodDeclaration): FunctionInfo {
@@ -96,7 +116,8 @@ class JavaCodeAnalyzer {
             branches = branches,
             loops = loops,
             exceptions = exceptions,
-            cyclomaticComplexity = complexity
+            cyclomaticComplexity = complexity,
+            isStatic = method.isStatic
         )
     }
 

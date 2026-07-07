@@ -1,16 +1,27 @@
 #
 # Единый стек IntelligentTestAgent: наш Kotlin REST API сервер (Ktor) + n8n
-# (low-code платформа) в одной Docker Compose сети.
+# (low-code платформа) + Ollama (бесплатная локальная LLM, без регистрации
+# и без платного API-ключа) в одной Docker Compose сети.
 #
-# Запуск ОДНОЙ командой (поднимет оба сервиса, соберёт образ агента, если
+# Запуск ОДНОЙ командой (поднимет все сервисы, соберёт образ агента, если
 # нужно):
 #   docker compose up --build -d
 #   (или проще: .\run.ps1 up)
 #
-# Первая сборка образа агента может занять несколько минут - скачиваются
-# базовые Docker-образы (eclipse-temurin) и зависимости Gradle внутри
-# контейнера сборки. Повторные запуски намного быстрее благодаря кэшу
-# слоёв Docker.
+# Первый запуск может занять несколько минут:
+#   - скачиваются базовые Docker-образы (eclipse-temurin, n8n, ollama);
+#   - скачиваются зависимости Gradle внутри контейнера сборки агента;
+#   - сервис ollama-pull скачивает бесплатную локальную модель
+#     (llama3.2:1b, ~1.3GB) внутрь тома ollama_data - при повторных
+#     запусках модель уже в кэше и повторно не скачивается.
+# Повторные запуски намного быстрее благодаря кэшу слоёв Docker и кэшу
+# модели Ollama.
+#
+# По умолчанию агент использует именно эту локальную модель (LLM_API_KEY
+# не нужен, регистрация не нужна). Если вместо этого хотите использовать
+# платный OpenAI (или другой OpenAI-совместимый сервис) - создайте файл
+# .env (см. .env.example) и переопределите там LLM_API_KEY/LLM_MODEL/
+# LLM_API_BASE_URL.
 #
 # Остановить:
 #   docker compose down
@@ -19,23 +30,59 @@
 # Логи:
 #   docker compose logs -f agent
 #   docker compose logs -f n8n
+#   docker compose logs -f ollama
+#   docker compose logs ollama-pull   (проверить, что модель скачалась)
 #
 # После запуска:
 #   - наш REST API:  http://localhost:8080/health
 #   - интерфейс n8n: http://localhost:5678
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: intelligent-test-agent-ollama
+    restart: unless-stopped
+    volumes:
+      # Кэш скачанных моделей - переживает `docker compose down`, поэтому
+      # модель скачивается только один раз, а не при каждом запуске.
+      - ollama_data:/root/.ollama
+    # Порт наружу не пробрасываем - Ollama нужен только agent'у внутри
+    # compose-сети (по DNS-имени "ollama"). Если нужно подебажить Ollama
+    # напрямую с хоста, раскомментируйте:
+    # ports:
+    #   - "11434:11434"
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: intelligent-test-agent-ollama-pull
+    depends_on:
+      - ollama
+    # Одноразовая задача: скачать модель и завершиться. `ollama pull`
+    # идемпотентен - если модель уже есть в томе ollama_data, команда
+    # быстро это проверит и завершится без повторного скачивания.
+    entrypoint: ["sh", "-c", "sleep 3 && OLLAMA_HOST=ollama:11434 ollama pull llama3.2:1b"]
+    restart: "no"
+
   agent:
     build: .
     container_name: intelligent-test-agent-server
     restart: unless-stopped
+    depends_on:
+      - ollama-pull
     ports:
       - "8080:8080"
     environment:
       - PORT=8080
-      - LLM_API_KEY=${LLM_API_KEY:-}
-      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
-      - LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://api.openai.com/v1}
+      # По умолчанию - бесплатная локальная модель через Ollama, без
+      # ключа и без регистрации. Переопределяется через .env, если нужен
+      # платный OpenAI/другой сервис.
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL:-http://ollama:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:1b}
+      # Ollama не проверяет API-ключ, но наш клиент пропускает сетевой
+      # вызов целиком при пустом/отсутствующем ключе (это поведение нужно
+      # для настоящего OpenAI) - поэтому непустой плейсхолдер обязателен,
+      # чтобы запросы к локальной модели реально отправлялись.
+      - LLM_API_KEY=${LLM_API_KEY:-ollama-local-placeholder}
     volumes:
       # Примеры Java-файлов для демонстрации (доступны агенту по пути
       # /data/samples/... - см. integration/n8n/workflow.json).
@@ -44,6 +91,8 @@ services:
       # test-cases.json, сгенерированный Kotlin-код тестов). Папка
       # ./build/agent-output появится на хосте автоматически.
       - ./build/agent-output:/data/output
+      # Файлы, загруженные через POST /generate-tests-upload (см. Routes.kt).
+      - ./build/agent-uploads:/data/uploads
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:latest
@@ -61,3 +110,4 @@ services:
 
 volumes:
   n8n_data:
+  ollama_data:
