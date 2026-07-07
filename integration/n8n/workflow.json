@@ -18,7 +18,7 @@
         "url": "http://agent:8080/generate-tests",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"sourcePath\": \"{{$json[\"sourcePath\"] || \"/data/samples/SampleCalculator.java\"}}\",\n  \"outputDir\": \"{{$json[\"outputDir\"] || \"/data/output\"}}\"\n}",
+        "jsonBody": "{\n  \"sourcePath\": \"/data/samples/SampleCalculator.java\",\n  \"outputDir\": \"/data/output\"\n}",
         "options": {}
       },
       "id": "1f9b1f3a-1a2b-4c3d-8e4f-000000000002",
