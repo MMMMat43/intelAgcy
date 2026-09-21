@@ -1,0 +1,64 @@
+@startuml
+!pragma layout smetana
+hide circle
+skinparam linetype ortho
+entity projects {
+  * id : INTEGER <<PK>>
+  --
+  * name : TEXT <<UQ>>
+  * root_path : TEXT
+  * language : TEXT
+  * created_at : TEXT
+}
+entity source_files {
+  * id : INTEGER <<PK>>
+  --
+  * project_id : INTEGER <<FK>>
+  * relative_path : TEXT
+  * content_hash : TEXT
+  * line_count : INTEGER
+}
+entity analysis_runs {
+  * id : INTEGER <<PK>>
+  --
+  * project_id : INTEGER <<FK>>
+  * status : TEXT
+  * started_at : TEXT
+  finished_at : TEXT
+  llm_model : TEXT
+}
+entity analyzed_methods {
+  * id : INTEGER <<PK>>
+  --
+  * run_id : INTEGER <<FK>>
+  * source_file_id : INTEGER <<FK>>
+  * class_name : TEXT
+  * method_name : TEXT
+  * signature : TEXT
+  * cyclomatic_complexity : INTEGER
+}
+entity test_cases {
+  * id : INTEGER <<PK>>
+  --
+  * method_id : INTEGER <<FK>>
+  * scenario_type : TEXT
+  * title : TEXT
+  * input_data : TEXT
+  expected_result : TEXT
+  * generated_by : TEXT
+}
+entity generated_artifacts {
+  * id : INTEGER <<PK>>
+  --
+  * run_id : INTEGER <<FK>>
+  * artifact_type : TEXT
+  * file_path : TEXT
+  * created_at : TEXT
+}
+projects ||--o{ source_files
+projects ||--o{ analysis_runs
+analysis_runs ||--o{ analyzed_methods
+source_files ||--o{ analyzed_methods
+analyzed_methods ||--o{ test_cases
+analysis_runs ||--o{ generated_artifacts
+@enduml

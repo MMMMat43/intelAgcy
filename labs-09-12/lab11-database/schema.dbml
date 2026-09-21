@@ -1,0 +1,6 @@
+Table projects { id integer [pk, increment] name text [not null, unique] root_path text [not null] language text [not null] created_at text [not null] }
+Table source_files { id integer [pk, increment] project_id integer [not null, ref: > projects.id] relative_path text [not null] content_hash text [not null] line_count integer [not null] }
+Table analysis_runs { id integer [pk, increment] project_id integer [not null, ref: > projects.id] status text [not null] started_at text [not null] finished_at text llm_model text }
+Table analyzed_methods { id integer [pk, increment] run_id integer [not null, ref: > analysis_runs.id] source_file_id integer [not null, ref: > source_files.id] class_name text [not null] method_name text [not null] signature text [not null] cyclomatic_complexity integer [not null] }
+Table test_cases { id integer [pk, increment] method_id integer [not null, ref: > analyzed_methods.id] scenario_type text [not null] title text [not null] input_data text [not null] expected_result text generated_by text [not null] }
+Table generated_artifacts { id integer [pk, increment] run_id integer [not null, ref: > analysis_runs.id] artifact_type text [not null] file_path text [not null] created_at text [not null] }

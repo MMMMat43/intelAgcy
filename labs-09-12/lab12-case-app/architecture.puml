@@ -1,0 +1,31 @@
+@startuml
+!pragma layout smetana
+skinparam linetype ortho
+package "UI" {
+  class MainFrame <<Swing>>
+}
+package "Service" {
+  class LabService
+}
+package "Repository layer" {
+  class ProjectRepository <<DAO>>
+  class RunRepository <<DAO>>
+  class TestCaseRepository <<DAO>>
+}
+package "Database" {
+  class DatabaseManager <<SQLite_JDBC>>
+}
+class Project <<record>>
+class AnalysisRun <<record>>
+class TestCaseItem <<record>>
+MainFrame --> LabService
+LabService --> ProjectRepository
+LabService --> RunRepository
+LabService --> TestCaseRepository
+ProjectRepository --> DatabaseManager
+RunRepository --> DatabaseManager
+TestCaseRepository --> DatabaseManager
+ProjectRepository ..> Project
+RunRepository ..> AnalysisRun
+TestCaseRepository ..> TestCaseItem
+@enduml

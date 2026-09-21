@@ -1,0 +1,6 @@
+package ru.vyatsu.ita.lab12.repository;
+import ru.vyatsu.ita.lab12.db.*; import ru.vyatsu.ita.lab12.model.*; import java.sql.*; import java.util.*;
+public final class TestCaseRepository {private final DatabaseManager db;public TestCaseRepository(DatabaseManager db){this.db=db;}
+ public List<TestCaseItem> findByProject(long projectId)throws SQLException{var out=new ArrayList<TestCaseItem>();String q="SELECT tc.id,tc.method_id,tc.scenario_type,tc.title,tc.expected_result,tc.generated_by FROM test_cases tc JOIN analyzed_methods m ON m.id=tc.method_id JOIN analysis_runs r ON r.id=m.run_id WHERE r.project_id=? ORDER BY tc.id";try(var c=db.connection();var s=c.prepareStatement(q)){s.setLong(1,projectId);try(var r=s.executeQuery()){while(r.next())out.add(new TestCaseItem(r.getLong(1),r.getLong(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6)));}}return out;}
+ public void add(long methodId,String type,String title,String expected)throws SQLException{try(var c=db.connection();var s=c.prepareStatement("INSERT INTO test_cases(method_id,scenario_type,title,input_data,expected_result,generated_by) VALUES(?,?,?,'{}',?,'USER')")){s.setLong(1,methodId);s.setString(2,type);s.setString(3,title);s.setString(4,expected);s.executeUpdate();}}
+}
