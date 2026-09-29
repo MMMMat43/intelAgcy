@@ -117,7 +117,7 @@ class CoverageGuidedGeneratorTest {
             """
             class Vault {
                 fun open(code: String): String {
-                    if (code == "open-sesame-8675309") {
+                    if (code.reversed() == "cba321") {
                         return "open"
                     }
                     return "closed"
@@ -126,7 +126,7 @@ class CoverageGuidedGeneratorTest {
             """
         )
         val client = ScriptedClient(
-            "```json\n[{\"code\": \"nope\"}, {\"code\": \"open-sesame-8675309\"}, {\"wrong\": 1}]\n```"
+            "```json\n[{\"code\": \"nope\"}, {\"code\": \"123abc\"}, {\"wrong\": 1}]\n```"
         )
         val result = CoverageGuidedGenerator(
             suggester = LlmUncoveredBranchSuggester(client),
@@ -138,7 +138,7 @@ class CoverageGuidedGeneratorTest {
         assertEquals(1, client.calls)
         val llmCases = assertNotNull(result.suite).testCases.filter { it.id.contains("-llm-") }
         assertEquals(1, llmCases.size)
-        assertEquals("open-sesame-8675309", llmCases.single().inputData["code"])
+        assertEquals("123abc", llmCases.single().inputData["code"])
         assertEquals(ExecutionOutcome.ReturnedValue("open"), result.outcomes[llmCases.single().id])
     }
 
