@@ -23,18 +23,8 @@ import com.example.agent.source.LocalFileSourceLoader
 import com.example.agent.storage.ArtifactStorage
 import java.nio.file.Paths
 
-/**
- * Thin service layer shared between the CLI and the REST API, wiring
- * together source loading, analysis, scenario generation, real in-memory
- * execution (oracle-based test generation), code generation and artifact
- * storage.
- *
- * Kept separate from [com.example.agent.Cli] and [Routes] so both entry
- * points reuse exactly the same pipeline wiring instead of duplicating it.
- */
 class PipelineService {
 
-    /** Thrown when a request references a source path that cannot be found or read. */
     class InvalidSourceException(message: String) : RuntimeException(message)
 
     fun analyze(sourcePath: String): CodeStructure {
@@ -86,17 +76,6 @@ class PipelineService {
         )
     }
 
-    /**
-     * Compiles [files] in memory and, for every [TestCase] whose parameter
-     * values can all be resolved to real typed objects (i.e. not the
-     * untyped `"llm-suggested"` placeholder used by [LlmScenarioEnricher],
-     * and not any other unsupported type), actually executes it via
-     * reflection, recording the real observed outcome.
-     *
-     * On any compilation failure, returns an empty map: the caller then
-     * falls back to the always-safe TODO-comment style for every test case.
-     * The temporary compilation directory is always cleaned up.
-     */
     private fun computeExecutionOutcomes(
         files: List<JavaSourceFile>,
         structure: CodeStructure,
@@ -122,14 +101,6 @@ class PipelineService {
         }
     }
 
-    /**
-     * Checks (without executing anything) whether every parameter value in
-     * [testCase] can be converted to the real type declared by [function] -
-     * this is what excludes LLM-suggested scenarios (whose `inputData`
-     * values are the literal string `"llm-suggested"`, not real typed
-     * values) from real execution, without depending on that literal string
-     * by name; any value that fails real type conversion is simply skipped.
-     */
     private fun allParametersConvertible(function: FunctionInfo, testCase: TestCase): Boolean {
         return function.parameters.all { parameter ->
             val rawValue = testCase.inputData[parameter.name]

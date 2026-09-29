@@ -9,37 +9,18 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
-/**
- * Result of an LLM completion call. Deliberately not tied to any specific
- * provider's JSON response shape, so callers only deal with plain text.
- */
 sealed class LlmResult {
     data class Success(val text: String) : LlmResult()
     data class Failure(val reason: String) : LlmResult()
 }
 
-/** Domain-facing interface for calling an LLM to complete a prompt. */
 interface LlmClient {
     fun complete(prompt: String): LlmResult
 }
 
-/**
- * [LlmClient] implementation that talks to an OpenAI-compatible
- * "/chat/completions" REST endpoint over HTTP using OkHttp.
- *
- * Behaviour:
- * - If [LlmConfig.apiKey] is null/blank, no network call is made and
- *   [LlmResult.Failure] is returned immediately (fallback mode).
- * - Any network error, timeout, or non-2xx HTTP response is converted into
- *   [LlmResult.Failure] instead of throwing, so callers can safely rely on
- *   heuristic-only generation when the LLM is unavailable.
- */
 class OpenAiCompatibleLlmClient(
     private val config: LlmConfig,
     connectTimeoutSeconds: Long = 30,
-    // 90 секунд по умолчанию (вместо 30) - некоторые OpenAI-совместимые
-    // провайдеры (особенно бесплатные модели) могут отвечать заметно
-    // медленнее, чем платный OpenAI.
     readTimeoutSeconds: Long = 90
 ) : LlmClient {
 
