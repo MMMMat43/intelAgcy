@@ -2,36 +2,23 @@ package com.example.agent.source
 
 import java.io.File
 
-/**
- * Единичный Java-исходный файл, загруженный из локальной файловой системы
- * или из клонированного git-репозитория.
- */
-data class JavaSourceFile(
+data class KotlinSourceFile(
     val path: String,
     val content: String
-)
-
-/**
- * Абстракция загрузки Java-исходников для последующего анализа.
- */
-interface SourceLoader {
-    fun load(location: String): List<JavaSourceFile>
+) {
+    val fileName: String
+        get() = path.substringAfterLast('/').substringAfterLast('\\')
 }
 
-/**
- * Имена директорий, которые всегда игнорируются при рекурсивном обходе
- * (служебные/build-директории, не содержащие "полезных" исходников).
- */
-private val IGNORED_DIRECTORY_NAMES = setOf(".git", "build", "target", "out")
+interface SourceLoader {
+    fun load(location: String): List<KotlinSourceFile>
+}
 
-/**
- * Загружает Java-исходники с локальной файловой системы: либо единичный
- * `*.java`-файл, либо директорию, рекурсивно обходимую с фильтрацией
- * по расширению `.java` и игнорированием служебных директорий.
- */
+private val IGNORED_DIRECTORY_NAMES = setOf(".git", "build", "target", "out", ".gradle")
+
 class LocalFileSourceLoader : SourceLoader {
 
-    override fun load(location: String): List<JavaSourceFile> {
+    override fun load(location: String): List<KotlinSourceFile> {
         val root = File(location)
         require(root.exists()) { "Path does not exist: $location" }
 
@@ -42,23 +29,23 @@ class LocalFileSourceLoader : SourceLoader {
         }
     }
 
-    private fun loadSingleFile(file: File): List<JavaSourceFile> {
-        if (!isJavaFile(file)) {
+    private fun loadSingleFile(file: File): List<KotlinSourceFile> {
+        if (!isKotlinFile(file)) {
             return emptyList()
         }
-        return listOf(toJavaSourceFile(file))
+        return listOf(toSourceFile(file))
     }
 
-    private fun loadDirectory(directory: File): List<JavaSourceFile> {
+    private fun loadDirectory(directory: File): List<KotlinSourceFile> {
         return directory.walkTopDown()
             .onEnter { dir -> dir.name !in IGNORED_DIRECTORY_NAMES }
-            .filter { it.isFile && isJavaFile(it) }
-            .map { toJavaSourceFile(it) }
+            .filter { it.isFile && isKotlinFile(it) }
+            .map { toSourceFile(it) }
             .toList()
     }
 
-    private fun isJavaFile(file: File): Boolean = file.extension == "java"
+    private fun isKotlinFile(file: File): Boolean = file.extension == "kt"
 
-    private fun toJavaSourceFile(file: File): JavaSourceFile =
-        JavaSourceFile(path = file.path, content = file.readText())
+    private fun toSourceFile(file: File): KotlinSourceFile =
+        KotlinSourceFile(path = file.path, content = file.readText())
 }

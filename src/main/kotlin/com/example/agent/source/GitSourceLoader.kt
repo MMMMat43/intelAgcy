@@ -4,20 +4,12 @@ import java.io.File
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 
-/**
- * Загружает Java-исходники из git-репозитория: клонирует HEAD ветку
- * репозитория во временную директорию через системный процесс `git clone`
- * и переиспользует [LocalFileSourceLoader] для получения файлов.
- *
- * Не реализует полноценный git-клиент (ветки/теги/история) — только
- * клонирование HEAD, достаточное для анализа текущего состояния кода.
- */
 class GitSourceLoader(
     private val localFileSourceLoader: LocalFileSourceLoader = LocalFileSourceLoader(),
     private val cloneTimeoutSeconds: Long = 120
 ) : SourceLoader {
 
-    override fun load(location: String): List<JavaSourceFile> {
+    override fun load(location: String): List<KotlinSourceFile> {
         val targetDir = Files.createTempDirectory("intelligent-test-agent-git-").toFile()
         try {
             cloneRepository(location, targetDir)

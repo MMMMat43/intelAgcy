@@ -11,8 +11,7 @@ repositories {
 }
 
 dependencies {
-    // Парсинг Java-кода
-    implementation("com.github.javaparser:javaparser-core:3.25.10")
+    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.0.21")
 
     // Генерация Kotlin-кода
     implementation("com.squareup:kotlinpoet:1.16.0")

@@ -1,4 +1,0 @@
-pluginManagement { repositories { gradlePluginPortal(); mavenCentral() } }
-dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { mavenCentral() } }
-rootProject.name = 'labs-09-12'
-include 'lab09-patterns', 'lab12-case-app'
