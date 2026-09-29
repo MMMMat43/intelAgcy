@@ -47,7 +47,7 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
       - LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://api.openai.com/v1}
     volumes:
-      # Примеры Java-файлов для демонстрации (доступны агенту по пути
+      # Примеры Kotlin-файлов для демонстрации (доступны агенту по пути
       # /data/samples/... - см. integration/n8n/workflow.json).
       - ./src/test/resources:/data/samples:ro
       # Сюда агент сохраняет сгенерированные артефакты (analysis.json,

@@ -3,15 +3,15 @@
   "nodes": [
     {
       "parameters": {
-        "formTitle": "IntelligentTestAgent - Upload Java file",
-        "formDescription": "Choose a .java file to analyze and generate JUnit5 tests for.",
+        "formTitle": "IntelligentTestAgent - Upload Kotlin file",
+        "formDescription": "Choose a .kt file to analyze and generate JUnit5 tests for.",
         "formFields": {
           "values": [
             {
-              "fieldLabel": "Java file",
+              "fieldLabel": "Kotlin file",
               "fieldType": "file",
               "requiredField": true,
-              "acceptFileTypes": ".java",
+              "acceptFileTypes": ".kt",
               "multipleFiles": false
             }
           ]
@@ -39,7 +39,7 @@
             {
               "parameterType": "formBinaryData",
               "name": "file",
-              "inputDataFieldName": "Java_file"
+              "inputDataFieldName": "Kotlin_file"
             }
           ]
         },
