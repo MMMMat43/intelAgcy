@@ -18,14 +18,14 @@ class ArtifactStorageTest {
     @Test
     fun `saves all three artifacts and round-trips JSON without data loss`(@TempDir tempDir: Path) {
         val structure = CodeStructure(
-            sourcePath = "/tmp/MathUtils.java",
-            language = "java",
+            sourcePath = "/tmp/MathUtils.kt",
+            language = "kotlin",
             functions = listOf(
                 FunctionInfo(
                     name = "add",
                     className = "MathUtils",
                     parameters = emptyList(),
-                    returnType = "int",
+                    returnType = "Int",
                     branches = emptyList(),
                     loops = emptyList(),
                     exceptions = emptyList(),
@@ -34,7 +34,7 @@ class ArtifactStorageTest {
             )
         )
         val testSuite = TestSuiteResult(
-            sourcePath = "/tmp/MathUtils.java",
+            sourcePath = "/tmp/MathUtils.kt",
             testCases = listOf(
                 TestCase(
                     id = "add-1",

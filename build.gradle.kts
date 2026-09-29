@@ -53,6 +53,7 @@ tasks.register<JavaExec>("runServer") {
 
 tasks.test {
     useJUnitPlatform()
+    maxHeapSize = "1g"
 }
 
 java {

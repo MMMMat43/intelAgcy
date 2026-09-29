@@ -20,16 +20,16 @@ class TestScenarioGeneratorTest {
         val function = FunctionInfo(
             name = "add",
             className = "MathUtils",
-            parameters = listOf(ParameterInfo(name = "a", type = "int"), ParameterInfo(name = "b", type = "int")),
-            returnType = "int",
+            parameters = listOf(ParameterInfo(name = "a", type = "Int"), ParameterInfo(name = "b", type = "Int")),
+            returnType = "Int",
             branches = emptyList(),
             loops = emptyList(),
             exceptions = emptyList(),
             cyclomaticComplexity = 1
         )
         val structure = CodeStructure(
-            sourcePath = "/tmp/MathUtils.java",
-            language = "java",
+            sourcePath = "/tmp/MathUtils.kt",
+            language = "kotlin",
             functions = listOf(function)
         )
 

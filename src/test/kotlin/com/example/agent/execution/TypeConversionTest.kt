@@ -1,35 +1,40 @@
 package com.example.agent.execution
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TypeConversionTest {
 
     @Test
-    fun `converts int, String and boolean values correctly`() {
-        assertEquals(ConversionResult.Converted(42), TypeConversion.convert("int", "42"))
-        assertEquals(ConversionResult.Converted("hello"), TypeConversion.convert("String", "hello"))
-        assertEquals(ConversionResult.Converted(true), TypeConversion.convert("boolean", "true"))
+    fun `converts supported types`() {
+        assertEquals(ConversionResult.Converted(42), TypeConversion.convert("Int", false, "42"))
+        assertEquals(ConversionResult.Converted(7L), TypeConversion.convert("Long", false, "7"))
+        assertEquals(ConversionResult.Converted(1.5), TypeConversion.convert("Double", false, "1.5"))
+        assertEquals(ConversionResult.Converted(true), TypeConversion.convert("Boolean", false, "true"))
+        assertEquals(ConversionResult.Converted('x'), TypeConversion.convert("Char", false, "x"))
+        assertEquals(ConversionResult.Converted("text"), TypeConversion.convert("String", false, "text"))
     }
 
     @Test
-    fun `null for a reference type converts to null, null for a primitive is unsupported`() {
-        assertEquals(ConversionResult.Converted(null), TypeConversion.convert("String", null))
-        assertTrue(TypeConversion.convert("int", null) is ConversionResult.Unsupported)
+    fun `null is accepted only for nullable types`() {
+        assertEquals(ConversionResult.Converted(null), TypeConversion.convert("String", true, null))
+        assertTrue(TypeConversion.convert("String", false, null) is ConversionResult.Unsupported)
     }
 
     @Test
-    fun `unsupported type is reported without throwing`() {
-        val result = TypeConversion.convert("CustomType", "anything")
-        assertTrue(result is ConversionResult.Unsupported)
+    fun `unparsable or unsupported values are reported`() {
+        assertTrue(TypeConversion.convert("Int", false, "abc") is ConversionResult.Unsupported)
+        assertTrue(TypeConversion.convert("Boolean", false, "maybe") is ConversionResult.Unsupported)
+        assertTrue(TypeConversion.convert("List<Int>", false, "1") is ConversionResult.Unsupported)
     }
 
     @Test
-    fun `reflectionClassFor returns primitive class for lowercase type names`() {
-        assertEquals(Int::class.javaPrimitiveType, TypeConversion.reflectionClassFor("int"))
-        assertEquals(java.lang.Integer::class.java, TypeConversion.reflectionClassFor("Integer"))
-        assertEquals(String::class.java, TypeConversion.reflectionClassFor("String"))
-        assertEquals(null, TypeConversion.reflectionClassFor("CustomType"))
+    fun `reflection class uses primitives for non nullable types only`() {
+        assertEquals(Int::class.javaPrimitiveType, TypeConversion.reflectionClassFor("Int", false))
+        assertEquals(Int::class.javaObjectType, TypeConversion.reflectionClassFor("Int", true))
+        assertEquals(String::class.java, TypeConversion.reflectionClassFor("String", false))
+        assertNull(TypeConversion.reflectionClassFor("List<Int>", false))
     }
 }

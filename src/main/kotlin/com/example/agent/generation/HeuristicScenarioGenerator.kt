@@ -1,26 +1,13 @@
 package com.example.agent.generation
 
+import com.example.agent.execution.TypeConversion
 import com.example.agent.model.FunctionInfo
 import com.example.agent.model.ParameterInfo
 import com.example.agent.model.ScenarioType
 import com.example.agent.model.TestCase
+import com.example.agent.model.signature
 import java.util.concurrent.atomic.AtomicInteger
 
-/**
- * Generates test scenarios for a single [FunctionInfo] purely from formal
- * heuristics, without any dependency on an LLM. This generator must always
- * return a non-empty, valid list of [TestCase]s for any function that has
- * at least one parameter or a name, so that the rest of the pipeline keeps
- * working even when no LLM is configured.
- *
- * Rules implemented:
- * - Numeric parameters (`int`, `long`, `double`/`float` and their boxed
- *   equivalents): boundary values (min, max, zero, negative).
- * - `String` parameters: empty string, `null`, and a very long string.
- * - Other reference types: a `null` value negative scenario.
- * - One positive scenario with "typical" valid values for all parameters.
- * - One negative scenario per thrown exception recorded in [FunctionInfo.exceptions].
- */
 class HeuristicScenarioGenerator {
 
     private val counter = AtomicInteger(0)
@@ -30,7 +17,7 @@ class HeuristicScenarioGenerator {
 
         cases += positiveScenario(function)
         function.parameters.forEach { parameter ->
-            cases += boundaryOrNegativeScenariosFor(function, parameter)
+            cases += scenariosFor(function, parameter)
         }
         cases += exceptionScenarios(function)
 
@@ -38,7 +25,7 @@ class HeuristicScenarioGenerator {
     }
 
     private fun positiveScenario(function: FunctionInfo): TestCase {
-        val inputData = function.parameters.associate { it.name to typicalValueFor(it.type) }
+        val inputData = function.parameters.associate { it.name to typicalValueFor(it.type) as String? }
         return newTestCase(
             function = function,
             type = ScenarioType.POSITIVE,
@@ -48,66 +35,46 @@ class HeuristicScenarioGenerator {
         )
     }
 
-    private fun boundaryOrNegativeScenariosFor(function: FunctionInfo, parameter: ParameterInfo): List<TestCase> {
-        val normalizedType = parameter.type.trim()
-        return when {
-            isNumericType(normalizedType) -> numericBoundaryScenarios(function, parameter)
-            isStringType(normalizedType) -> stringBoundaryScenarios(function, parameter)
-            else -> referenceTypeScenarios(function, parameter)
-        }
-    }
+    private fun scenariosFor(function: FunctionInfo, parameter: ParameterInfo): List<TestCase> {
+        val type = TypeConversion.normalize(parameter.type)
+        val cases = mutableListOf<TestCase>()
 
-    private fun numericBoundaryScenarios(function: FunctionInfo, parameter: ParameterInfo): List<TestCase> {
-        val boundaries = numericBoundaryValues(parameter.type)
-        return boundaries.map { (label, value) ->
-            val inputData = baseInputWithOverride(function, parameter.name, value)
-            newTestCase(
+        val labeledValues: List<Pair<String, String>> = when (type) {
+            in NUMERIC_TYPES -> numericBoundaryValues(type)
+            "String" -> listOf("пустая строка" to "", "строка максимальной длины" to "a".repeat(10_000))
+            "Boolean" -> listOf("значение false" to "false")
+            "Char" -> listOf("пробел" to " ", "цифра" to "0")
+            else -> emptyList()
+        }
+
+        labeledValues.forEach { (label, value) ->
+            cases += newTestCase(
                 function = function,
                 type = ScenarioType.BOUNDARY,
-                description = "Граничное значение параметра '${parameter.name}' (${parameter.type}): $label",
-                inputData = inputData,
+                description = "Граничное значение параметра '${parameter.name}' ($type): $label",
+                inputData = baseInputWithOverride(function, parameter.name, value),
                 expectedResult = "Система должна корректно обработать граничное значение"
             )
         }
-    }
 
-    private fun stringBoundaryScenarios(function: FunctionInfo, parameter: ParameterInfo): List<TestCase> {
-        val longString = "a".repeat(10_000)
-        val values = listOf(
-            "пустая строка" to "",
-            "null значение" to null,
-            "строка максимальной длины" to longString
-        )
-        return values.map { (label, value) ->
-            val inputData = baseInputWithOverride(function, parameter.name, value)
-            newTestCase(
-                function = function,
-                type = if (label == "null значение") ScenarioType.NEGATIVE else ScenarioType.BOUNDARY,
-                description = "Граничное/некорректное значение параметра '${parameter.name}' (String): $label",
-                inputData = inputData,
-                expectedResult = "Система должна корректно обработать или отклонить значение"
-            )
-        }
-    }
-
-    private fun referenceTypeScenarios(function: FunctionInfo, parameter: ParameterInfo): List<TestCase> {
-        val inputData = baseInputWithOverride(function, parameter.name, null)
-        return listOf(
-            newTestCase(
+        if (parameter.nullable) {
+            cases += newTestCase(
                 function = function,
                 type = ScenarioType.NEGATIVE,
-                description = "Значение null для параметра '${parameter.name}' (${parameter.type})",
-                inputData = inputData,
+                description = "Значение null для параметра '${parameter.name}' ($type?)",
+                inputData = baseInputWithOverride(function, parameter.name, null),
                 expectedResult = "Ожидается корректная обработка null (исключение или явная проверка)"
             )
-        )
+        }
+
+        return cases
     }
 
     private fun exceptionScenarios(function: FunctionInfo): List<TestCase> {
         return function.exceptions
             .filter { it.context == "thrown" }
             .map { exceptionInfo ->
-                val inputData = function.parameters.associate { it.name to typicalValueFor(it.type) }
+                val inputData = function.parameters.associate { it.name to typicalValueFor(it.type) as String? }
                 newTestCase(
                     function = function,
                     type = ScenarioType.NEGATIVE,
@@ -147,67 +114,62 @@ class HeuristicScenarioGenerator {
                 "Подготовить входные данные: $inputData",
                 "Вызвать ${function.className}.${function.name}",
                 "Проверить результат: ${expectedResult ?: "не определён"}"
-            )
+            ),
+            signature = function.signature()
         )
     }
 
     companion object {
-        private val NUMERIC_TYPES = setOf(
-            "int", "Integer", "long", "Long", "short", "Short", "byte", "Byte",
-            "double", "Double", "float", "Float"
-        )
-
-        private fun isNumericType(type: String): Boolean = NUMERIC_TYPES.contains(type)
-
-        private fun isStringType(type: String): Boolean = type == "String" || type == "java.lang.String"
+        private val NUMERIC_TYPES = setOf("Int", "Long", "Short", "Byte", "Double", "Float")
 
         private fun numericBoundaryValues(type: String): List<Pair<String, String>> {
             return when (type) {
-                "int", "Integer" -> listOf(
+                "Int" -> listOf(
                     "минимальное" to Int.MIN_VALUE.toString(),
                     "максимальное" to Int.MAX_VALUE.toString(),
                     "ноль" to "0",
                     "отрицательное" to "-1"
                 )
-                "long", "Long" -> listOf(
+                "Long" -> listOf(
                     "минимальное" to Long.MIN_VALUE.toString(),
                     "максимальное" to Long.MAX_VALUE.toString(),
                     "ноль" to "0",
                     "отрицательное" to "-1"
                 )
-                "short", "Short" -> listOf(
+                "Short" -> listOf(
                     "минимальное" to Short.MIN_VALUE.toString(),
                     "максимальное" to Short.MAX_VALUE.toString(),
                     "ноль" to "0",
                     "отрицательное" to "-1"
                 )
-                "byte", "Byte" -> listOf(
+                "Byte" -> listOf(
                     "минимальное" to Byte.MIN_VALUE.toString(),
                     "максимальное" to Byte.MAX_VALUE.toString(),
                     "ноль" to "0",
                     "отрицательное" to "-1"
                 )
-                "double", "Double" -> listOf(
+                "Double" -> listOf(
                     "минимальное" to Double.MIN_VALUE.toString(),
                     "максимальное" to Double.MAX_VALUE.toString(),
                     "ноль" to "0.0",
                     "отрицательное" to "-1.0"
                 )
-                "float", "Float" -> listOf(
+                else -> listOf(
                     "минимальное" to Float.MIN_VALUE.toString(),
                     "максимальное" to Float.MAX_VALUE.toString(),
                     "ноль" to "0.0",
                     "отрицательное" to "-1.0"
                 )
-                else -> listOf("значение по умолчанию" to "0")
             }
         }
 
         private fun typicalValueFor(type: String): String {
+            val normalized = TypeConversion.normalize(type)
             return when {
-                isNumericType(type) -> "1"
-                isStringType(type) -> "example"
-                type == "boolean" || type == "Boolean" -> "true"
+                normalized in NUMERIC_TYPES -> "1"
+                normalized == "String" -> "example"
+                normalized == "Boolean" -> "true"
+                normalized == "Char" -> "a"
                 else -> "validInstance"
             }
         }

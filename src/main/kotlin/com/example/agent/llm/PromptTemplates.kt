@@ -16,7 +16,7 @@ object PromptTemplates {
         val parametersDescription = if (functionInfo.parameters.isEmpty()) {
             "no parameters"
         } else {
-            functionInfo.parameters.joinToString(", ") { "${it.name}: ${it.type}" }
+            functionInfo.parameters.joinToString(", ") { "${it.name}: ${it.type}${if (it.nullable) "?" else ""}" }
         }
 
         val branchesDescription = if (functionInfo.branches.isEmpty()) {
@@ -38,7 +38,7 @@ object PromptTemplates {
         }
 
         return """
-            Analyze the following Java method and suggest test scenarios.
+            Analyze the following Kotlin function and suggest test scenarios.
 
             Class: ${functionInfo.className}
             Method: ${functionInfo.name}

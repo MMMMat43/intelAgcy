@@ -2,182 +2,159 @@ package com.example.agent.codegen
 
 import com.example.agent.execution.ExecutionOutcome
 import com.example.agent.model.FunctionInfo
+import com.example.agent.model.FunctionKind
 import com.example.agent.model.ParameterInfo
 import com.example.agent.model.ScenarioType
 import com.example.agent.model.TestCase
 import com.example.agent.model.TestSuiteResult
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class JUnit5TestCodeGeneratorTest {
 
-    @Test
-    fun `generates a compilable-looking FileSpec with expected number of Test methods`() {
-        val testCases = listOf(
-            TestCase(
-                id = "add-1",
-                functionName = "add",
-                className = "MathUtils",
-                type = ScenarioType.POSITIVE,
-                description = "Positive scenario for add",
-                inputData = mapOf("a" to "1", "b" to "2"),
-                expectedResult = "3",
-                steps = listOf("call add(1, 2)", "assert result is 3")
-            ),
-            TestCase(
-                id = "add-2",
-                functionName = "add",
-                className = "MathUtils",
-                type = ScenarioType.BOUNDARY,
-                description = "Boundary scenario for add",
-                inputData = mapOf("a" to Int.MAX_VALUE.toString(), "b" to "1"),
-                expectedResult = "overflow",
-                steps = listOf("call add(MAX_VALUE, 1)")
-            ),
-            TestCase(
-                id = "add-3",
-                functionName = "add",
-                className = "MathUtils",
-                type = ScenarioType.NEGATIVE,
-                description = "Negative scenario for add",
-                inputData = mapOf("a" to "null", "b" to "1"),
-                expectedResult = "exception",
-                steps = listOf("call add(null, 1)")
-            )
-        )
-        val testSuite = TestSuiteResult(sourcePath = "/tmp/MathUtils.java", testCases = testCases)
+    private fun function(
+        name: String = "divide",
+        className: String = "SampleCalculator",
+        kind: String = FunctionKind.MEMBER,
+        packageName: String = "",
+        parameters: List<ParameterInfo> = listOf(ParameterInfo("numerator", "Int"), ParameterInfo("denominator", "Int")),
+        returnType: String = "Int"
+    ) = FunctionInfo(
+        name = name,
+        className = className,
+        parameters = parameters,
+        returnType = returnType,
+        branches = emptyList(),
+        loops = emptyList(),
+        exceptions = emptyList(),
+        cyclomaticComplexity = 1,
+        kind = kind,
+        packageName = packageName
+    )
 
-        val fileSpec = JUnit5TestCodeGenerator().generate(testSuite, "com.example.generated")
-        val generatedCode = fileSpec.toString()
+    private fun case(
+        id: String,
+        function: FunctionInfo,
+        type: ScenarioType = ScenarioType.POSITIVE,
+        vararg input: Pair<String, String?>
+    ) = TestCase(
+        id = id,
+        functionName = function.name,
+        className = function.className,
+        type = type,
+        description = "d",
+        inputData = mapOf(*input),
+        expectedResult = null,
+        steps = listOf("step")
+    )
 
-        assertTrue(generatedCode.contains("import org.junit.jupiter.api.Test"), "Expected JUnit5 Test import")
-        assertTrue(generatedCode.contains("class MathUtilsTest"), "Expected generated test class")
-
-        val testMethodCount = Regex("@Test").findAll(generatedCode).count()
-        assertTrue(testMethodCount == 3, "Expected 3 @Test methods, found $testMethodCount")
+    private fun generate(function: FunctionInfo, testCase: TestCase, outcome: ExecutionOutcome?): String {
+        val suite = TestSuiteResult("/tmp/x.kt", listOf(testCase))
+        val outcomes = if (outcome == null) emptyMap() else mapOf(testCase.id to outcome)
+        return JUnit5TestCodeGenerator().generate(suite, function.packageName, listOf(function), outcomes).toString()
     }
 
     @Test
-    fun `ReturnedValue outcome generates a real assertEquals call`() {
-        val testCase = TestCase(
-            id = "divide-1",
-            functionName = "divide",
-            className = "SampleCalculator",
-            type = ScenarioType.POSITIVE,
-            description = "positive",
-            inputData = mapOf("numerator" to "10", "denominator" to "2"),
-            expectedResult = null,
-            steps = emptyList()
+    fun `generates one Test method per scenario without outcomes`() {
+        val f = function()
+        val cases = listOf(
+            case("a", f, ScenarioType.POSITIVE, "numerator" to "1", "denominator" to "2"),
+            case("b", f, ScenarioType.BOUNDARY, "numerator" to "1", "denominator" to "2"),
+            case("c", f, ScenarioType.NEGATIVE, "numerator" to "1", "denominator" to "2")
         )
-        val testSuite = TestSuiteResult(sourcePath = "/tmp/SampleCalculator.java", testCases = listOf(testCase))
-        val function = FunctionInfo(
-            name = "divide",
-            className = "SampleCalculator",
-            parameters = listOf(ParameterInfo("numerator", "int"), ParameterInfo("denominator", "int")),
-            returnType = "int",
-            branches = emptyList(),
-            loops = emptyList(),
-            exceptions = emptyList(),
-            cyclomaticComplexity = 4,
-            isStatic = false
-        )
-        val outcomes = mapOf("divide-1" to ExecutionOutcome.ReturnedValue(5))
+        val code = JUnit5TestCodeGenerator().generate(TestSuiteResult("/tmp/x.kt", cases), "").toString()
 
-        val generatedCode = JUnit5TestCodeGenerator()
-            .generate(testSuite, "", listOf(function), outcomes)
-            .toString()
+        assertTrue(code.contains("import org.junit.jupiter.api.Test"))
+        assertTrue(code.contains("class SampleCalculatorTest"))
+        assertEquals3(Regex("@Test").findAll(code).count())
+    }
 
-        assertTrue(generatedCode.contains("assertEquals"), "Expected a real assertEquals call:\n$generatedCode")
-        assertTrue(generatedCode.contains("5"), "Expected the literal return value 5 in generated code:\n$generatedCode")
-        assertTrue(!generatedCode.contains("TODO"), "Did not expect a TODO placeholder:\n$generatedCode")
+    private fun assertEquals3(actual: Int) = assertTrue(actual == 3, "Expected 3 @Test methods, found $actual")
+
+    @Test
+    fun `member function with returned value generates assertEquals on a new instance`() {
+        val f = function()
+        val code = generate(f, case("d1", f, ScenarioType.POSITIVE, "numerator" to "10", "denominator" to "2"), ExecutionOutcome.ReturnedValue(5))
+
+        assertTrue(code.contains("val instance = SampleCalculator()"), code)
+        assertTrue(code.contains("assertEquals(5, instance.divide(10, 2))"), code)
+        assertFalse(code.contains("TODO"), code)
     }
 
     @Test
-    fun `ThrewException outcome generates a real assertThrows call`() {
-        val testCase = TestCase(
-            id = "divide-2",
-            functionName = "divide",
-            className = "SampleCalculator",
-            type = ScenarioType.NEGATIVE,
-            description = "division by zero",
-            inputData = mapOf("numerator" to "10", "denominator" to "0"),
-            expectedResult = null,
-            steps = emptyList()
+    fun `thrown exception generates assertThrows`() {
+        val f = function()
+        val code = generate(
+            f,
+            case("d2", f, ScenarioType.NEGATIVE, "numerator" to "10", "denominator" to "0"),
+            ExecutionOutcome.ThrewException("java.lang.ArithmeticException")
         )
-        val testSuite = TestSuiteResult(sourcePath = "/tmp/SampleCalculator.java", testCases = listOf(testCase))
-        val function = FunctionInfo(
-            name = "divide",
-            className = "SampleCalculator",
-            parameters = listOf(ParameterInfo("numerator", "int"), ParameterInfo("denominator", "int")),
-            returnType = "int",
-            branches = emptyList(),
-            loops = emptyList(),
-            exceptions = emptyList(),
-            cyclomaticComplexity = 4,
-            isStatic = false
-        )
-        val outcomes = mapOf("divide-2" to ExecutionOutcome.ThrewException("java.lang.ArithmeticException"))
 
-        val generatedCode = JUnit5TestCodeGenerator()
-            .generate(testSuite, "", listOf(function), outcomes)
-            .toString()
-
-        assertTrue(generatedCode.contains("assertThrows"), "Expected a real assertThrows call:\n$generatedCode")
-        assertTrue(
-            generatedCode.contains("ArithmeticException"),
-            "Expected ArithmeticException reference in generated code:\n$generatedCode"
-        )
+        assertTrue(code.contains("assertThrows(ArithmeticException::class.java)"), code)
+        assertTrue(code.contains("instance.divide(10, 0)"), code)
     }
 
     @Test
-    fun `CouldNotExecute outcome falls back to TODO-comment style`() {
-        val testCase = TestCase(
-            id = "divide-3",
-            functionName = "divide",
-            className = "SampleCalculator",
-            type = ScenarioType.NEGATIVE,
-            description = "unsupported",
-            inputData = mapOf("numerator" to "10", "denominator" to "2"),
-            expectedResult = "n/a",
-            steps = listOf("step")
-        )
-        val testSuite = TestSuiteResult(sourcePath = "/tmp/SampleCalculator.java", testCases = listOf(testCase))
-        val function = FunctionInfo(
-            name = "divide",
-            className = "SampleCalculator",
-            parameters = listOf(ParameterInfo("numerator", "int"), ParameterInfo("denominator", "int")),
-            returnType = "int",
-            branches = emptyList(),
-            loops = emptyList(),
-            exceptions = emptyList(),
-            cyclomaticComplexity = 4,
-            isStatic = false
-        )
-        val outcomes = mapOf("divide-3" to ExecutionOutcome.CouldNotExecute("unsupported") as ExecutionOutcome)
+    fun `object member is called through the object name`() {
+        val f = function(name = "twice", className = "Single", kind = FunctionKind.OBJECT_MEMBER, packageName = "demo", parameters = listOf(ParameterInfo("x", "Int")))
+        val code = generate(f, case("o1", f, ScenarioType.POSITIVE, "x" to "4"), ExecutionOutcome.ReturnedValue(8))
 
-        val generatedCode = JUnit5TestCodeGenerator()
-            .generate(testSuite, "", listOf(function), outcomes)
-            .toString()
-
-        assertTrue(generatedCode.contains("TODO"), "Expected TODO fallback:\n$generatedCode")
+        assertTrue(code.contains("assertEquals(8, Single.twice(4))"), code)
+        assertFalse(code.contains("val instance"), code)
     }
 
     @Test
-    fun `missing outcome falls back to TODO-comment style as before`() {
-        val testCase = TestCase(
-            id = "divide-4",
-            functionName = "divide",
-            className = "SampleCalculator",
-            type = ScenarioType.POSITIVE,
-            description = "no outcome supplied",
-            inputData = mapOf("numerator" to "10", "denominator" to "2"),
-            expectedResult = "n/a",
-            steps = listOf("step")
+    fun `top level function is called directly and imported`() {
+        val f = function(name = "topLevel", className = "DemoKt", kind = FunctionKind.TOP_LEVEL, packageName = "demo.pkg", parameters = listOf(ParameterInfo("x", "Int")))
+        val code = generate(f, case("t1", f, ScenarioType.POSITIVE, "x" to "4"), ExecutionOutcome.ReturnedValue(5))
+
+        assertTrue(code.contains("package demo.pkg"), code)
+        assertTrue(code.contains("assertEquals(5, topLevel(4))"), code)
+    }
+
+    @Test
+    fun `nullable string and char arguments are rendered as literals`() {
+        val f = function(
+            name = "mix",
+            parameters = listOf(ParameterInfo("s", "String", nullable = true), ParameterInfo("c", "Char"), ParameterInfo("d", "Double")),
+            returnType = "String"
         )
-        val testSuite = TestSuiteResult(sourcePath = "/tmp/SampleCalculator.java", testCases = listOf(testCase))
+        val code = generate(
+            f,
+            case("m1", f, ScenarioType.BOUNDARY, "s" to null, "c" to "a", "d" to "1.5"),
+            ExecutionOutcome.ReturnedValue("ok")
+        )
 
-        val generatedCode = JUnit5TestCodeGenerator().generate(testSuite, "").toString()
+        assertTrue(code.contains("instance.mix(null, 'a', 1.5)"), code)
+        assertTrue(code.contains("assertEquals(\"ok\""), code)
+    }
 
-        assertTrue(generatedCode.contains("TODO"), "Expected TODO fallback:\n$generatedCode")
+    @Test
+    fun `Int MIN_VALUE is rendered as a compilable expression`() {
+        val f = function(name = "id", parameters = listOf(ParameterInfo("x", "Int")))
+        val code = generate(f, case("i1", f, ScenarioType.BOUNDARY, "x" to Int.MIN_VALUE.toString()), ExecutionOutcome.ReturnedValue(0))
+
+        assertTrue(code.contains("Int.MIN_VALUE"), code)
+    }
+
+    @Test
+    fun `CouldNotExecute falls back to the TODO comment style`() {
+        val f = function()
+        val code = generate(
+            f,
+            case("d3", f, ScenarioType.NEGATIVE, "numerator" to "10", "denominator" to "2"),
+            ExecutionOutcome.CouldNotExecute("unsupported")
+        )
+
+        assertTrue(code.contains("TODO"), code)
+    }
+
+    @Test
+    fun `missing outcome falls back to the TODO comment style`() {
+        val f = function()
+        val code = generate(f, case("d4", f, ScenarioType.POSITIVE, "numerator" to "10", "denominator" to "2"), null)
+
+        assertTrue(code.contains("TODO"), code)
     }
 }
