@@ -27,6 +27,18 @@ fun main(args: Array<String>) {
         if (hasGenerateTestsFlag(args)) {
             val result = pipeline.generateTests(source, outputDir)
             println(jsonMapper.writeValueAsString(result.testSuiteResult))
+            result.coverage?.let { coverage ->
+                println(
+                    "Branch coverage: ${coverage.coveredBranches}/${coverage.totalBranches} " +
+                        "(${"%.1f".format(coverage.branchCoverage * 100)}%)"
+                )
+                coverage.functions.forEach { function ->
+                    println(
+                        "  ${function.className}.${function.functionName}: " +
+                            "${function.coveredBranches}/${function.totalBranches}"
+                    )
+                }
+            }
             result.skippedFunctions.forEach { println("Skipped: $it") }
             result.warnings.forEach { println("Warning: $it") }
             if (outputDir != null) {

@@ -15,10 +15,17 @@ sealed class ExecutionOutcome {
 
 class TestCaseExecutor(private val timeoutMillis: Long = 10_000) {
 
-    fun execute(classLoader: ClassLoader, function: FunctionInfo, testCase: TestCase): ExecutionOutcome {
+    fun execute(
+        classLoader: ClassLoader,
+        function: FunctionInfo,
+        testCase: TestCase,
+        onWorkerStart: (() -> Unit)? = null,
+        onTimeout: (() -> Unit)? = null
+    ): ExecutionOutcome {
         val result = AtomicReference<ExecutionOutcome?>(null)
         val worker = Thread {
             val outcome = try {
+                onWorkerStart?.invoke()
                 executeInternal(classLoader, function, testCase)
             } catch (t: Throwable) {
                 ExecutionOutcome.CouldNotExecute("unexpected failure while executing test case: ${t.message}")
@@ -28,7 +35,10 @@ class TestCaseExecutor(private val timeoutMillis: Long = 10_000) {
         worker.isDaemon = true
         worker.start()
         worker.join(timeoutMillis)
-        return result.get() ?: ExecutionOutcome.CouldNotExecute("execution timed out after $timeoutMillis ms")
+        val finished = result.get()
+        if (finished != null) return finished
+        onTimeout?.invoke()
+        return ExecutionOutcome.CouldNotExecute("execution timed out after $timeoutMillis ms")
     }
 
     private fun executeInternal(classLoader: ClassLoader, function: FunctionInfo, testCase: TestCase): ExecutionOutcome {

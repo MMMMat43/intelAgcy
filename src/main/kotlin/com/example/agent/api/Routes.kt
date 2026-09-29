@@ -36,7 +36,11 @@ private fun PipelineService.GenerateTestsResult.toResponse() = GenerateTestsResp
     generatedTestFilePath = generatedTestFilePath,
     executedTestCases = executedTestCases,
     skippedFunctions = skippedFunctions,
-    warnings = warnings
+    warnings = warnings,
+    branchCoverage = coverage?.branchCoverage,
+    coveredBranches = coverage?.coveredBranches,
+    totalBranches = coverage?.totalBranches,
+    coverageMeasured = coverage?.measured ?: false
 )
 
 fun Application.configureRouting(pipelineService: PipelineService = PipelineService()) {
