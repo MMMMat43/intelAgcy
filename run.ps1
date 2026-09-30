@@ -271,7 +271,7 @@ switch ($Action) {
         Write-Host "Recommended for a full demo: .\run.ps1 up" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "To enable real neural-network calls, copy .env.example to .env" -ForegroundColor DarkGray
-        Write-Host "and fill in your LLM_API_KEY. Without a key, only heuristics are used." -ForegroundColor DarkGray
+        Write-Host "and fill in your LLM_API_KEY. Without a key, the built-in algorithm works alone." -ForegroundColor DarkGray
         Write-Host ""
     }
 }

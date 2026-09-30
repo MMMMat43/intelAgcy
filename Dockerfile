@@ -22,9 +22,9 @@ RUN chmod +x gradlew && ./gradlew --no-daemon installDist -x test
 #
 # /generate-tests compiles the analyzed Kotlin source in memory with the
 # embedded Kotlin compiler (see com.example.agent.execution.KotlinInMemoryCompiler)
-# so it can actually execute each generated scenario and produce real
-# assertEquals/assertThrows test bodies instead of TODO placeholders. The
-# compiler needs the JDK class library, so a full JDK image is used.
+# so it can execute each scenario and produce real assertEquals/assertThrows
+# test bodies. The compiler needs the JDK class library, so a full JDK image
+# is used.
 FROM eclipse-temurin:17-jdk AS runtime
 WORKDIR /app
 
