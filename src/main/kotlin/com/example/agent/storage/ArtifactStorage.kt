@@ -1,5 +1,6 @@
 package com.example.agent.storage
 
+import com.example.agent.coverage.CoverageReport
 import com.example.agent.model.CodeStructure
 import com.example.agent.model.TestSuiteResult
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -36,6 +37,11 @@ class ArtifactStorage(private val outputDir: Path) {
         Files.createDirectories(outputDir)
         val target = outputDir.resolve("test-cases.json")
         objectMapper.writeValue(target.toFile(), testSuite)
+    }
+
+    fun saveCoverage(report: CoverageReport) {
+        Files.createDirectories(outputDir)
+        objectMapper.writeValue(outputDir.resolve("coverage.json").toFile(), report)
     }
 
     fun saveGeneratedTestCode(fileSpec: FileSpec) {

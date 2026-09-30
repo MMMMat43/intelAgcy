@@ -1,59 +1,48 @@
 package com.example.agent.execution
 
 import com.example.agent.model.FunctionInfo
+import com.example.agent.model.FunctionKind
 import com.example.agent.model.TestCase
 import java.lang.reflect.InvocationTargetException
-import java.net.URLClassLoader
+import java.lang.reflect.Method
+import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Outcome of actually invoking a compiled method via reflection with the
- * concrete arguments from a [TestCase].
- */
 sealed class ExecutionOutcome {
     data class ReturnedValue(val value: Any?) : ExecutionOutcome()
     data class ThrewException(val exceptionClassName: String) : ExecutionOutcome()
     data class CouldNotExecute(val reason: String) : ExecutionOutcome()
 }
 
-/**
- * Executes a single [TestCase] against a real, in-memory-compiled class
- * (loaded via [InMemoryJavaCompiler]) through reflection, recording the
- * actual observed behavior (return value or thrown exception) as an
- * "oracle" that [com.example.agent.codegen.JUnit5TestCodeGenerator] can turn
- * into a real assertion.
- *
- * This class is deliberately defensive: it must never let a compilation or
- * reflection failure propagate out and break the enclosing HTTP request.
- * Every failure mode - unsupported parameter types, missing methods, missing
- * no-arg constructors, and even unexpected `Throwable`s from the invoked code
- * itself - is captured as [ExecutionOutcome.CouldNotExecute].
- */
-class TestCaseExecutor {
+class TestCaseExecutor(private val timeoutMillis: Long = 10_000) {
 
     fun execute(
-        classLoader: URLClassLoader,
-        packageName: String,
+        classLoader: ClassLoader,
         function: FunctionInfo,
-        testCase: TestCase
+        testCase: TestCase,
+        onWorkerStart: (() -> Unit)? = null,
+        onTimeout: (() -> Unit)? = null
     ): ExecutionOutcome {
-        return try {
-            executeInternal(classLoader, packageName, function, testCase)
-        } catch (t: Throwable) {
-            // Defensive catch-all: reflective invocation of arbitrary,
-            // externally-supplied code can throw almost anything, including
-            // Errors (e.g. NoClassDefFoundError). None of that should ever
-            // bubble up and fail the /generate-tests request.
-            ExecutionOutcome.CouldNotExecute("unexpected failure while executing test case: ${t.message}")
+        val result = AtomicReference<ExecutionOutcome?>(null)
+        val worker = Thread {
+            val outcome = try {
+                onWorkerStart?.invoke()
+                executeInternal(classLoader, function, testCase)
+            } catch (t: Throwable) {
+                ExecutionOutcome.CouldNotExecute("unexpected failure while executing test case: ${t.message}")
+            }
+            result.set(outcome)
         }
+        worker.isDaemon = true
+        worker.start()
+        worker.join(timeoutMillis)
+        val finished = result.get()
+        if (finished != null) return finished
+        onTimeout?.invoke()
+        return ExecutionOutcome.CouldNotExecute("execution timed out after $timeoutMillis ms")
     }
 
-    private fun executeInternal(
-        classLoader: URLClassLoader,
-        packageName: String,
-        function: FunctionInfo,
-        testCase: TestCase
-    ): ExecutionOutcome {
-        val fqcn = if (packageName.isBlank()) function.className else "$packageName.${function.className}"
+    private fun executeInternal(classLoader: ClassLoader, function: FunctionInfo, testCase: TestCase): ExecutionOutcome {
+        val fqcn = if (function.packageName.isBlank()) function.className else "${function.packageName}.${function.className}"
 
         val clazz = try {
             Class.forName(fqcn, false, classLoader)
@@ -65,13 +54,11 @@ class TestCaseExecutor {
         val arguments = mutableListOf<Any?>()
 
         for (parameter in function.parameters) {
-            val reflectionType = TypeConversion.reflectionClassFor(parameter.type)
+            val reflectionType = TypeConversion.reflectionClassFor(parameter.type, parameter.nullable)
                 ?: return ExecutionOutcome.CouldNotExecute("unsupported parameter type: ${parameter.type}")
 
-            val rawValue = testCase.inputData[parameter.name]
-            when (val converted = TypeConversion.convert(parameter.type, rawValue)) {
-                is ConversionResult.Unsupported ->
-                    return ExecutionOutcome.CouldNotExecute(converted.reason)
+            when (val converted = TypeConversion.convert(parameter.type, parameter.nullable, testCase.inputData[parameter.name])) {
+                is ConversionResult.Unsupported -> return ExecutionOutcome.CouldNotExecute(converted.reason)
                 is ConversionResult.Converted -> {
                     parameterTypes.add(reflectionType)
                     arguments.add(converted.value)
@@ -79,32 +66,53 @@ class TestCaseExecutor {
             }
         }
 
-        val method = try {
-            clazz.getMethod(function.name, *parameterTypes.toTypedArray())
+        val target: Any?
+        val owner: Class<*>
+        try {
+            when (function.kind) {
+                FunctionKind.TOP_LEVEL -> {
+                    target = null
+                    owner = clazz
+                }
+                FunctionKind.OBJECT_MEMBER -> {
+                    target = clazz.getField("INSTANCE").get(null)
+                    owner = clazz
+                }
+                FunctionKind.COMPANION_MEMBER -> {
+                    target = clazz.getField("Companion").get(null)
+                    owner = target.javaClass
+                }
+                else -> {
+                    val constructor = clazz.getDeclaredConstructor()
+                    constructor.isAccessible = true
+                    target = constructor.newInstance()
+                    owner = clazz
+                }
+            }
         } catch (e: NoSuchMethodException) {
-            return ExecutionOutcome.CouldNotExecute("method not found: ${function.name}(${parameterTypes.joinToString()})")
+            return ExecutionOutcome.CouldNotExecute("no no-arg constructor available for $fqcn")
+        } catch (e: NoSuchFieldException) {
+            return ExecutionOutcome.CouldNotExecute("singleton field not found for $fqcn: ${e.message}")
+        } catch (e: ReflectiveOperationException) {
+            return ExecutionOutcome.CouldNotExecute("could not instantiate $fqcn: ${e.message}")
         }
 
-        val instance: Any? = if (function.isStatic) {
-            null
-        } else {
-            try {
-                val constructor = clazz.getDeclaredConstructor()
-                constructor.isAccessible = true
-                constructor.newInstance()
-            } catch (e: NoSuchMethodException) {
-                return ExecutionOutcome.CouldNotExecute("no no-arg constructor available for $fqcn")
-            } catch (e: ReflectiveOperationException) {
-                return ExecutionOutcome.CouldNotExecute("could not instantiate $fqcn: ${e.message}")
-            }
+        val method: Method = try {
+            owner.getMethod(function.name, *parameterTypes.toTypedArray())
+        } catch (e: NoSuchMethodException) {
+            return ExecutionOutcome.CouldNotExecute("method not found: ${function.name}(${parameterTypes.joinToString { it.simpleName }})")
         }
+        runCatching { method.isAccessible = true }
 
         return try {
-            val result = method.invoke(instance, *arguments.toTypedArray())
-            ExecutionOutcome.ReturnedValue(result)
+            ExecutionOutcome.ReturnedValue(method.invoke(target, *arguments.toTypedArray()))
         } catch (e: InvocationTargetException) {
             val cause = e.cause
-            ExecutionOutcome.ThrewException(cause?.javaClass?.name ?: "java.lang.Throwable")
+            when (cause) {
+                null -> ExecutionOutcome.CouldNotExecute("invocation failed without a cause")
+                is Error -> ExecutionOutcome.CouldNotExecute("invocation raised ${cause.javaClass.name}")
+                else -> ExecutionOutcome.ThrewException(cause.javaClass.name)
+            }
         } catch (e: IllegalAccessException) {
             ExecutionOutcome.CouldNotExecute("method not accessible: ${e.message}")
         }

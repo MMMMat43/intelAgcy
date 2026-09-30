@@ -1,109 +1,168 @@
 package com.example.agent.execution
 
 import com.example.agent.model.FunctionInfo
+import com.example.agent.model.FunctionKind
 import com.example.agent.model.ParameterInfo
 import com.example.agent.model.ScenarioType
 import com.example.agent.model.TestCase
-import com.example.agent.source.JavaSourceFile
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Files
-import java.nio.file.Path
+import org.junit.jupiter.api.TestInstance
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TestCaseExecutorTest {
 
-    private val calculatorSource = Files.readString(Path.of("src", "test", "resources", "SampleCalculator.java"))
+    private val source = """
+        package demo
 
-    private val divideFunction = FunctionInfo(
-        name = "divide",
-        className = "SampleCalculator",
-        parameters = listOf(ParameterInfo("numerator", "int"), ParameterInfo("denominator", "int")),
-        returnType = "int",
+        class Calc {
+            fun divide(a: Int, b: Int): Int {
+                if (b == 0) throw ArithmeticException("zero")
+                return a / b
+            }
+            fun name(value: String?): String = value ?: "none"
+            fun custom(list: List<Int>): Int = list.size
+        }
+
+        object Single {
+            fun twice(x: Int): Int = x * 2
+        }
+
+        class Holder {
+            companion object {
+                fun triple(x: Int): Int = x * 3
+            }
+        }
+
+        fun topLevel(x: Int): Int = x + 1
+    """.trimIndent()
+
+    private val compiled = KotlinInMemoryCompiler().compile(listOf(SourceUnit("Demo.kt", source))) as CompilationResult.Success
+    private val executor = TestCaseExecutor()
+
+    @AfterAll
+    fun cleanup() {
+        compiled.dispose()
+    }
+
+    private fun function(
+        name: String,
+        className: String,
+        kind: String,
+        parameters: List<ParameterInfo>
+    ) = FunctionInfo(
+        name = name,
+        className = className,
+        parameters = parameters,
+        returnType = "Int",
         branches = emptyList(),
         loops = emptyList(),
         exceptions = emptyList(),
-        cyclomaticComplexity = 4,
-        isStatic = false
+        cyclomaticComplexity = 1,
+        kind = kind,
+        packageName = "demo"
     )
 
+    private fun case(vararg input: Pair<String, String?>) = TestCase(
+        id = "t",
+        functionName = "f",
+        className = "C",
+        type = ScenarioType.POSITIVE,
+        description = "d",
+        inputData = mapOf(*input),
+        expectedResult = null,
+        steps = emptyList()
+    )
+
+    private val intParams = listOf(ParameterInfo("a", "Int"), ParameterInfo("b", "Int"))
+
     @Test
-    fun `positive scenario divide(10,2) returns 5`() {
-        val compilation = InMemoryJavaCompiler().compile(listOf(JavaSourceFile("SampleCalculator.java", calculatorSource)))
-        val success = compilation as CompilationResult.Success
-        try {
-            val testCase = TestCase(
-                id = "divide-positive",
-                functionName = "divide",
-                className = "SampleCalculator",
-                type = ScenarioType.POSITIVE,
-                description = "positive",
-                inputData = mapOf("numerator" to "10", "denominator" to "2"),
-                expectedResult = null,
-                steps = emptyList()
-            )
+    fun `member function returns the real value`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("divide", "Calc", FunctionKind.MEMBER, intParams),
+            case("a" to "10", "b" to "2")
+        )
 
-            val outcome = TestCaseExecutor().execute(success.classLoader, "", divideFunction, testCase)
-
-            assertTrue(outcome is ExecutionOutcome.ReturnedValue, "Expected ReturnedValue, got: $outcome")
-            assertEquals(5, (outcome as ExecutionOutcome.ReturnedValue).value)
-        } finally {
-            success.classLoader.close()
-            success.tempDir.toFile().deleteRecursively()
-        }
+        assertEquals(ExecutionOutcome.ReturnedValue(5), outcome)
     }
 
     @Test
-    fun `division by zero throws ArithmeticException`() {
-        val compilation = InMemoryJavaCompiler().compile(listOf(JavaSourceFile("SampleCalculator.java", calculatorSource)))
-        val success = compilation as CompilationResult.Success
-        try {
-            val testCase = TestCase(
-                id = "divide-by-zero",
-                functionName = "divide",
-                className = "SampleCalculator",
-                type = ScenarioType.NEGATIVE,
-                description = "division by zero",
-                inputData = mapOf("numerator" to "10", "denominator" to "0"),
-                expectedResult = null,
-                steps = emptyList()
-            )
+    fun `member function records the thrown exception type`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("divide", "Calc", FunctionKind.MEMBER, intParams),
+            case("a" to "10", "b" to "0")
+        )
 
-            val outcome = TestCaseExecutor().execute(success.classLoader, "", divideFunction, testCase)
-
-            assertTrue(outcome is ExecutionOutcome.ThrewException, "Expected ThrewException, got: $outcome")
-            assertEquals("java.lang.ArithmeticException", (outcome as ExecutionOutcome.ThrewException).exceptionClassName)
-        } finally {
-            success.classLoader.close()
-            success.tempDir.toFile().deleteRecursively()
-        }
+        assertEquals(ExecutionOutcome.ThrewException("java.lang.ArithmeticException"), outcome)
     }
 
     @Test
-    fun `unsupported parameter type results in CouldNotExecute`() {
-        val compilation = InMemoryJavaCompiler().compile(listOf(JavaSourceFile("SampleCalculator.java", calculatorSource)))
-        val success = compilation as CompilationResult.Success
-        try {
-            val functionWithUnsupportedParam = divideFunction.copy(
-                parameters = listOf(ParameterInfo("numerator", "CustomType"), ParameterInfo("denominator", "int"))
-            )
-            val testCase = TestCase(
-                id = "divide-unsupported",
-                functionName = "divide",
-                className = "SampleCalculator",
-                type = ScenarioType.POSITIVE,
-                description = "unsupported type",
-                inputData = mapOf("numerator" to "10", "denominator" to "2"),
-                expectedResult = null,
-                steps = emptyList()
-            )
+    fun `object member is invoked through INSTANCE`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("twice", "Single", FunctionKind.OBJECT_MEMBER, listOf(ParameterInfo("x", "Int"))),
+            case("x" to "4")
+        )
 
-            val outcome = TestCaseExecutor().execute(success.classLoader, "", functionWithUnsupportedParam, testCase)
+        assertEquals(ExecutionOutcome.ReturnedValue(8), outcome)
+    }
 
-            assertTrue(outcome is ExecutionOutcome.CouldNotExecute, "Expected CouldNotExecute, got: $outcome")
-        } finally {
-            success.classLoader.close()
-            success.tempDir.toFile().deleteRecursively()
-        }
+    @Test
+    fun `companion member is invoked through Companion`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("triple", "Holder", FunctionKind.COMPANION_MEMBER, listOf(ParameterInfo("x", "Int"))),
+            case("x" to "4")
+        )
+
+        assertEquals(ExecutionOutcome.ReturnedValue(12), outcome)
+    }
+
+    @Test
+    fun `top level function is invoked as a static method of the file class`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("topLevel", "DemoKt", FunctionKind.TOP_LEVEL, listOf(ParameterInfo("x", "Int"))),
+            case("x" to "4")
+        )
+
+        assertEquals(ExecutionOutcome.ReturnedValue(5), outcome)
+    }
+
+    @Test
+    fun `nullable parameter accepts null`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("name", "Calc", FunctionKind.MEMBER, listOf(ParameterInfo("value", "String", nullable = true))),
+            case("value" to null)
+        )
+
+        assertEquals(ExecutionOutcome.ReturnedValue("none"), outcome)
+    }
+
+    @Test
+    fun `unsupported parameter type yields CouldNotExecute`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("custom", "Calc", FunctionKind.MEMBER, listOf(ParameterInfo("list", "List<Int>"))),
+            case("list" to "validInstance")
+        )
+
+        assertTrue(outcome is ExecutionOutcome.CouldNotExecute)
+    }
+
+    @Test
+    fun `unknown class yields CouldNotExecute`() {
+        val outcome = executor.execute(
+            compiled.classLoader,
+            function("divide", "Missing", FunctionKind.MEMBER, intParams),
+            case("a" to "1", "b" to "1")
+        )
+
+        assertTrue(outcome is ExecutionOutcome.CouldNotExecute)
     }
 }

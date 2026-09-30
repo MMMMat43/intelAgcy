@@ -12,7 +12,15 @@ data class GenerateTestsRequest(
 data class GenerateTestsResponse(
     val functionsCount: Int,
     val testCasesCount: Int,
-    val generatedTestFilePath: String?
+    val generatedTestFilePath: String?,
+    val language: String = "kotlin",
+    val executedTestCases: Int = 0,
+    val skippedFunctions: List<String> = emptyList(),
+    val warnings: List<String> = emptyList(),
+    val branchCoverage: Double? = null,
+    val coveredBranches: Int? = null,
+    val totalBranches: Int? = null,
+    val coverageMeasured: Boolean = false
 )
 
 data class ErrorResponse(

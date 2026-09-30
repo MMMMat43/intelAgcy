@@ -2,57 +2,25 @@ package com.example.agent.llm
 
 import com.example.agent.model.FunctionInfo
 
-/**
- * Prompt templates used to ask an LLM for additional, semantically-informed
- * test scenario suggestions on top of purely heuristic generation.
- */
 object PromptTemplates {
 
-    /**
-     * Builds a prompt describing a single analyzed function, asking the model
-     * to suggest positive, negative and boundary test scenarios for it.
-     */
-    fun functionAnalysisPrompt(functionInfo: FunctionInfo): String {
-        val parametersDescription = if (functionInfo.parameters.isEmpty()) {
+    fun uncoveredBranchesPrompt(function: FunctionInfo, uncoveredBranches: List<String>): String {
+        val parameters = if (function.parameters.isEmpty()) {
             "no parameters"
         } else {
-            functionInfo.parameters.joinToString(", ") { "${it.name}: ${it.type}" }
+            function.parameters.joinToString(", ") { "${it.name}: ${it.type}${if (it.nullable) "?" else ""}" }
         }
-
-        val branchesDescription = if (functionInfo.branches.isEmpty()) {
-            "none"
-        } else {
-            functionInfo.branches.joinToString("; ") { "${it.kind} (${it.condition}) at line ${it.lineNumber}" }
-        }
-
-        val loopsDescription = if (functionInfo.loops.isEmpty()) {
-            "none"
-        } else {
-            functionInfo.loops.joinToString("; ") { "${it.kind} (${it.condition}) at line ${it.lineNumber}" }
-        }
-
-        val exceptionsDescription = if (functionInfo.exceptions.isEmpty()) {
-            "none"
-        } else {
-            functionInfo.exceptions.joinToString("; ") { "${it.exceptionType} (${it.context}) at line ${it.lineNumber}" }
-        }
-
+        val branches = uncoveredBranches.joinToString("\n") { "- $it" }
         return """
-            Analyze the following Java method and suggest test scenarios.
+            Kotlin function ${function.className}.${function.name}($parameters): ${function.returnType}.
+            Automatic test generation could not reach these branches:
+            $branches
 
-            Class: ${functionInfo.className}
-            Method: ${functionInfo.name}
-            Return type: ${functionInfo.returnType}
-            Parameters: $parametersDescription
-            Branches: $branchesDescription
-            Loops: $loopsDescription
-            Exceptions: $exceptionsDescription
-            Cyclomatic complexity: ${functionInfo.cyclomaticComplexity}
-
-            Suggest additional positive, negative, and boundary test scenarios that a
-            purely structural analysis might miss, focusing on the business meaning of
-            this method. For each scenario, briefly describe: scenario type (positive,
-            negative, or boundary), a short description, and the expected outcome.
+            Suggest concrete argument values that would make execution enter those branches.
+            Answer with a JSON array only, no explanations. Each element is an object with one key per
+            parameter name (${function.parameters.joinToString(", ") { it.name }}) and a value of the
+            parameter type. Use numbers for numeric types, true/false for Boolean, strings for String and Char,
+            null only for nullable parameters. Give at most 10 elements.
         """.trimIndent()
     }
 }

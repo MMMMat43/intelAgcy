@@ -2,28 +2,37 @@ package com.example.agent.model
 
 data class ParameterInfo(
     val name: String,
-    val type: String
+    val type: String,
+    val nullable: Boolean = false,
+    val hasDefault: Boolean = false
 )
 
 enum class ScenarioType { POSITIVE, NEGATIVE, BOUNDARY }
 
 data class BranchInfo(
-    val kind: String,      // "if", "switch", "ternary" и т.п.
-    val condition: String, // текстовое представление условия
+    val kind: String,
+    val condition: String,
     val lineNumber: Int
 )
 
 data class LoopInfo(
-    val kind: String,      // "for", "while", "do-while"
+    val kind: String,
     val condition: String,
     val lineNumber: Int
 )
 
 data class ExceptionInfo(
     val exceptionType: String,
-    val context: String,   // например, "thrown" или "caught"
+    val context: String,
     val lineNumber: Int
 )
+
+object FunctionKind {
+    const val MEMBER = "member"
+    const val TOP_LEVEL = "top-level"
+    const val OBJECT_MEMBER = "object-member"
+    const val COMPANION_MEMBER = "companion-member"
+}
 
 data class FunctionInfo(
     val name: String,
@@ -34,18 +43,22 @@ data class FunctionInfo(
     val loops: List<LoopInfo>,
     val exceptions: List<ExceptionInfo>,
     val cyclomaticComplexity: Int,
-    // Признак модификатора `static` у метода. По умолчанию false, чтобы не
-    // ломать существующие места создания FunctionInfo без этого поля.
-    val isStatic: Boolean = false
+    val kind: String = FunctionKind.MEMBER,
+    val skipReason: String? = null,
+    val packageName: String = ""
 )
+
+fun FunctionInfo.isTestable(): Boolean = skipReason == null
+
+fun FunctionInfo.signature(): String =
+    parameters.joinToString(",") { it.type + if (it.nullable) "?" else "" }
+
+fun FunctionInfo.key(): String = "$className.$name(${signature()})"
 
 data class CodeStructure(
     val sourcePath: String,
-    val language: String, // "java"
+    val language: String,
     val functions: List<FunctionInfo>,
-    // Имя пакета анализируемого класса (пусто, если package не объявлен).
-    // По умолчанию "", чтобы не ломать существующие места создания
-    // CodeStructure без этого поля.
     val packageName: String = ""
 )
 
@@ -55,9 +68,10 @@ data class TestCase(
     val className: String,
     val type: ScenarioType,
     val description: String,
-    val inputData: Map<String, String?>, // имя параметра -> значение как строка (для сериализации/кодогенерации)
+    val inputData: Map<String, String?>,
     val expectedResult: String?,
-    val steps: List<String>
+    val steps: List<String>,
+    val signature: String = ""
 )
 
 data class TestSuiteResult(

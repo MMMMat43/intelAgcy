@@ -8,8 +8,8 @@
 
         .\run.ps1 build
         .\run.ps1 test
-        .\run.ps1 analyze  -Source path\To\File.java
-        .\run.ps1 generate -Source path\To\File.java [-Output path]
+        .\run.ps1 analyze  -Source path\To\File.kt
+        .\run.ps1 generate -Source path\To\File.kt [-Output path]
         .\run.ps1 serve    [-Port 8080]
         .\run.ps1 up        (Docker: whole stack - agent + n8n, one command)
         .\run.ps1 down      (Docker: stop the whole stack)
@@ -163,14 +163,14 @@ switch ($Action) {
     }
     'analyze' {
         if (-not $Source) {
-            Write-Host "Usage: .\run.ps1 analyze -Source path\to\File.java" -ForegroundColor Red
+            Write-Host "Usage: .\run.ps1 analyze -Source path\to\File.kt" -ForegroundColor Red
             exit 1
         }
         & $gradlew run "--args=--source `"$Source`"" --no-daemon
     }
     'generate' {
         if (-not $Source) {
-            Write-Host "Usage: .\run.ps1 generate -Source path\to\File.java" -ForegroundColor Red
+            Write-Host "Usage: .\run.ps1 generate -Source path\to\File.kt" -ForegroundColor Red
             exit 1
         }
         $outDir = if ($Output) { $Output } else { "build/agent-output" }
@@ -256,10 +256,10 @@ switch ($Action) {
         Write-Host ""
         Write-Host "  .\run.ps1 build                                    - build the project"
         Write-Host "  .\run.ps1 test                                     - run tests"
-        Write-Host "  .\run.ps1 analyze  -Source path\to\File.java        - analyze code"
-        Write-Host "  .\run.ps1 generate -Source path\to\File.java        - generate tests"
+        Write-Host "  .\run.ps1 analyze  -Source path\to\File.kt        - analyze code"
+        Write-Host "  .\run.ps1 generate -Source path\to\File.kt        - generate tests"
         Write-Host "                                                       (artifacts in build\agent-output)"
-        Write-Host "  .\run.ps1 generate -Source path\to\File.java -Output my_folder"
+        Write-Host "  .\run.ps1 generate -Source path\to\File.kt -Output my_folder"
         Write-Host "                                                     - generate tests into your own folder"
         Write-Host "  .\run.ps1 serve                                    - REST API on port 8080 (local JDK, no Docker)"
         Write-Host "  .\run.ps1 serve -Port 9090                         - REST API on a different port"
@@ -271,7 +271,7 @@ switch ($Action) {
         Write-Host "Recommended for a full demo: .\run.ps1 up" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "To enable real neural-network calls, copy .env.example to .env" -ForegroundColor DarkGray
-        Write-Host "and fill in your LLM_API_KEY. Without a key, only heuristics are used." -ForegroundColor DarkGray
+        Write-Host "and fill in your LLM_API_KEY. Without a key, the built-in algorithm works alone." -ForegroundColor DarkGray
         Write-Host ""
     }
 }

@@ -1,49 +1,44 @@
 package com.example.agent.execution
 
-/**
- * Result of converting a [com.example.agent.model.TestCase.inputData] string
- * value into a real Java object for reflective invocation.
- */
 sealed class ConversionResult {
     data class Converted(val value: Any?) : ConversionResult()
     data class Unsupported(val reason: String) : ConversionResult()
 }
 
-/**
- * Converts the string-encoded parameter values produced by
- * [com.example.agent.generation.HeuristicScenarioGenerator] into real typed
- * Java objects, and resolves the reflection-compatible [Class] for a given
- * declared parameter type.
- *
- * Supports exactly the set of types [com.example.agent.generation.HeuristicScenarioGenerator]
- * knows how to generate boundary/typical values for: int/Integer, long/Long,
- * short/Short, byte/Byte, double/Double, float/Float, boolean/Boolean, String.
- * Any other type is reported as [ConversionResult.Unsupported] rather than
- * throwing, so callers can gracefully skip real execution for that scenario.
- */
 object TypeConversion {
 
-    fun convert(type: String, rawValue: String?): ConversionResult {
-        val normalizedType = type.trim()
+    private val PRIMITIVE_CAPABLE = setOf("Int", "Long", "Short", "Byte", "Double", "Float", "Boolean", "Char")
+
+    fun convert(type: String, nullable: Boolean, rawValue: String?): ConversionResult {
+        val normalizedType = normalize(type)
 
         if (rawValue == null) {
-            return if (isPrimitive(normalizedType)) {
-                ConversionResult.Unsupported("cannot pass null for primitive type '$normalizedType'")
-            } else {
+            return if (nullable) {
                 ConversionResult.Converted(null)
+            } else {
+                ConversionResult.Unsupported("null is not allowed for non-nullable type '$normalizedType'")
             }
         }
 
         return try {
             when (normalizedType) {
-                "int", "Integer" -> ConversionResult.Converted(rawValue.toInt())
-                "long", "Long" -> ConversionResult.Converted(rawValue.toLong())
-                "short", "Short" -> ConversionResult.Converted(rawValue.toShort())
-                "byte", "Byte" -> ConversionResult.Converted(rawValue.toByte())
-                "double", "Double" -> ConversionResult.Converted(rawValue.toDouble())
-                "float", "Float" -> ConversionResult.Converted(rawValue.toFloat())
-                "boolean", "Boolean" -> ConversionResult.Converted(rawValue.toBoolean())
-                "String", "java.lang.String" -> ConversionResult.Converted(rawValue)
+                "Int" -> ConversionResult.Converted(rawValue.toInt())
+                "Long" -> ConversionResult.Converted(rawValue.toLong())
+                "Short" -> ConversionResult.Converted(rawValue.toShort())
+                "Byte" -> ConversionResult.Converted(rawValue.toByte())
+                "Double" -> ConversionResult.Converted(rawValue.toDouble())
+                "Float" -> ConversionResult.Converted(rawValue.toFloat())
+                "Boolean" -> when (rawValue) {
+                    "true" -> ConversionResult.Converted(true)
+                    "false" -> ConversionResult.Converted(false)
+                    else -> ConversionResult.Unsupported("could not parse '$rawValue' as Boolean")
+                }
+                "Char" -> if (rawValue.length == 1) {
+                    ConversionResult.Converted(rawValue[0])
+                } else {
+                    ConversionResult.Unsupported("could not parse '$rawValue' as Char")
+                }
+                "String" -> ConversionResult.Converted(rawValue)
                 else -> ConversionResult.Unsupported("unsupported parameter type: '$normalizedType'")
             }
         } catch (e: NumberFormatException) {
@@ -51,35 +46,23 @@ object TypeConversion {
         }
     }
 
-    /**
-     * Returns the reflection-compatible [Class] for a declared parameter
-     * type, or `null` if unsupported. For primitive-spelled types (`int`,
-     * not `Integer`), returns the primitive [Class] (e.g. `Int::class.javaPrimitiveType`)
-     * so that `Class.getMethod(name, *parameterTypes)` resolves correctly
-     * against methods declared with primitive parameters.
-     */
-    fun reflectionClassFor(type: String): Class<*>? {
-        return when (type.trim()) {
-            "int" -> Int::class.javaPrimitiveType
-            "Integer" -> java.lang.Integer::class.java
-            "long" -> Long::class.javaPrimitiveType
-            "Long" -> java.lang.Long::class.java
-            "short" -> Short::class.javaPrimitiveType
-            "Short" -> java.lang.Short::class.java
-            "byte" -> Byte::class.javaPrimitiveType
-            "Byte" -> java.lang.Byte::class.java
-            "double" -> Double::class.javaPrimitiveType
-            "Double" -> java.lang.Double::class.java
-            "float" -> Float::class.javaPrimitiveType
-            "Float" -> java.lang.Float::class.java
-            "boolean" -> Boolean::class.javaPrimitiveType
-            "Boolean" -> java.lang.Boolean::class.java
-            "String", "java.lang.String" -> String::class.java
+    fun reflectionClassFor(type: String, nullable: Boolean): Class<*>? {
+        val normalizedType = normalize(type)
+        val usePrimitive = !nullable && normalizedType in PRIMITIVE_CAPABLE
+        return when (normalizedType) {
+            "Int" -> if (usePrimitive) Int::class.javaPrimitiveType else Int::class.javaObjectType
+            "Long" -> if (usePrimitive) Long::class.javaPrimitiveType else Long::class.javaObjectType
+            "Short" -> if (usePrimitive) Short::class.javaPrimitiveType else Short::class.javaObjectType
+            "Byte" -> if (usePrimitive) Byte::class.javaPrimitiveType else Byte::class.javaObjectType
+            "Double" -> if (usePrimitive) Double::class.javaPrimitiveType else Double::class.javaObjectType
+            "Float" -> if (usePrimitive) Float::class.javaPrimitiveType else Float::class.javaObjectType
+            "Boolean" -> if (usePrimitive) Boolean::class.javaPrimitiveType else Boolean::class.javaObjectType
+            "Char" -> if (usePrimitive) Char::class.javaPrimitiveType else Char::class.javaObjectType
+            "String" -> String::class.java
             else -> null
         }
     }
 
-    private fun isPrimitive(type: String): Boolean {
-        return type in setOf("int", "long", "short", "byte", "double", "float", "boolean")
-    }
+    fun normalize(type: String): String =
+        type.trim().removeSuffix("?").trim().removePrefix("kotlin.")
 }

@@ -20,14 +20,11 @@ RUN chmod +x gradlew && ./gradlew --no-daemon installDist -x test
 
 # Stage 2 (runtime): full JDK image running the REST API server.
 #
-# A full JDK (not just a JRE) is required at runtime, not only at build
-# time: /generate-tests compiles the analyzed Java source in memory via
-# javax.tools.ToolProvider.getSystemJavaCompiler() (see
-# com.example.agent.execution.InMemoryJavaCompiler) so it can actually
-# execute each generated scenario and produce real assertEquals/assertThrows
-# test bodies instead of TODO placeholders. That compiler API returns null
-# on a JRE-only runtime, so a JDK image is used here on purpose (slightly
-# larger image, but required for this feature to work).
+# /generate-tests compiles the analyzed Kotlin source in memory with the
+# embedded Kotlin compiler (see com.example.agent.execution.KotlinInMemoryCompiler)
+# so it can execute each scenario and produce real assertEquals/assertThrows
+# test bodies. The compiler needs the JDK class library, so a full JDK image
+# is used.
 FROM eclipse-temurin:17-jdk AS runtime
 WORKDIR /app
 

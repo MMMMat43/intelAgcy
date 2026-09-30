@@ -11,7 +11,7 @@ class ModelSmokeTest {
 
     @Test
     fun `CodeStructure and TestCase can be created and fields are accessible`() {
-        val parameter = ParameterInfo(name = "value", type = "int")
+        val parameter = ParameterInfo(name = "value", type = "Int")
 
         val branch = BranchInfo(kind = "if", condition = "value > 0", lineNumber = 10)
         val loop = LoopInfo(kind = "for", condition = "i < value", lineNumber = 12)
@@ -21,7 +21,7 @@ class ModelSmokeTest {
             name = "process",
             className = "Calculator",
             parameters = listOf(parameter),
-            returnType = "int",
+            returnType = "Int",
             branches = listOf(branch),
             loops = listOf(loop),
             exceptions = listOf(exception),
@@ -29,8 +29,8 @@ class ModelSmokeTest {
         )
 
         val codeStructure = CodeStructure(
-            sourcePath = "src/main/java/Calculator.java",
-            language = "java",
+            sourcePath = "src/main/kotlin/Calculator.kt",
+            language = "kotlin",
             functions = listOf(function)
         )
 
@@ -50,7 +50,7 @@ class ModelSmokeTest {
             testCases = listOf(testCase)
         )
 
-        assertEquals("java", codeStructure.language)
+        assertEquals("kotlin", codeStructure.language)
         assertEquals(1, codeStructure.functions.size)
         assertEquals("process", codeStructure.functions.first().name)
         assertEquals(3, codeStructure.functions.first().cyclomaticComplexity)
