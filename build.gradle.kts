@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.0.21")
+    implementation("org.xerial:sqlite-jdbc:3.46.1.3")
 
     // Генерация Kotlin-кода
     implementation("com.squareup:kotlinpoet:1.16.0")

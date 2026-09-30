@@ -162,7 +162,7 @@ class SqliteRunRepositoryTest {
         val saved = repository.findAll().single()
         assertEquals(RunStatus.COMPLETED, saved.status)
         assertTrue(saved.functions.isNotEmpty())
-        assertEquals(result.response.functionsCount, saved.functions.size)
+        assertEquals(result.functionsCount, saved.functions.size)
         assertTrue(saved.functions.sumOf { it.cases.size } > 0)
         assertTrue(saved.functions.all { it.branches.size == it.totalBranches })
         assertEquals(setOf("SampleCalculator"), saved.functions.map { it.className }.toSet())

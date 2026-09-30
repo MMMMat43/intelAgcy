@@ -23,4 +23,22 @@ class CliTest {
         val result = parseSourceArgument(arrayOf("--source"))
         assertNull(result)
     }
+
+    @Test
+    fun `resolveHistoryPath prefers the flag over the environment`() {
+        val result = resolveHistoryPath(arrayOf("--history", "a.db"), mapOf("AGENT_HISTORY_DB" to "b.db"))
+        assertEquals("a.db", result)
+    }
+
+    @Test
+    fun `resolveHistoryPath falls back to the environment`() {
+        val result = resolveHistoryPath(arrayOf(), mapOf("AGENT_HISTORY_DB" to "b.db"))
+        assertEquals("b.db", result)
+    }
+
+    @Test
+    fun `resolveHistoryPath is disabled by default`() {
+        assertNull(resolveHistoryPath(arrayOf(), emptyMap()))
+        assertNull(resolveHistoryPath(arrayOf(), mapOf("AGENT_HISTORY_DB" to " ")))
+    }
 }

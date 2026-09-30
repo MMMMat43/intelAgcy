@@ -7,12 +7,35 @@ import kotlin.concurrent.withLock
 
 enum class RunStatus { COMPLETED, FAILED }
 
+enum class BranchState { COVERED, NOT_FOUND, NOT_INSTRUMENTABLE }
+
+data class BranchRecord(
+    val code: String,
+    val label: String,
+    val state: BranchState
+)
+
+data class TestCaseRecord(
+    val code: String,
+    val scenarioType: String,
+    val origin: String,
+    val description: String,
+    val expectedResult: String?,
+    val inputs: Map<String, String?>
+)
+
 data class FunctionRunRecord(
     val className: String,
     val functionName: String,
     val totalBranches: Int,
     val coveredBranches: Int,
-    val testCases: Int
+    val testCases: Int,
+    val signature: String = "",
+    val complexity: Int? = null,
+    val fileName: String? = null,
+    val packageName: String = "",
+    val branches: List<BranchRecord> = emptyList(),
+    val cases: List<TestCaseRecord> = emptyList()
 )
 
 data class RunRecord(
@@ -29,7 +52,8 @@ data class RunRecord(
     val coverageMeasured: Boolean = false,
     val outputDir: String? = null,
     val message: String? = null,
-    val functions: List<FunctionRunRecord> = emptyList()
+    val functions: List<FunctionRunRecord> = emptyList(),
+    val projectName: String? = null
 ) {
     val branchCoverage: Double?
         get() = if (coverageMeasured && totalBranches > 0) coveredBranches.toDouble() / totalBranches else null

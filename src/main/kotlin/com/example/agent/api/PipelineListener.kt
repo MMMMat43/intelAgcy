@@ -1,7 +1,14 @@
 package com.example.agent.api
 
 import com.example.agent.coverage.FunctionCoverage
+import com.example.agent.model.TestCase
 import java.time.Instant
+
+data class FunctionDetail(
+    val fileName: String,
+    val packageName: String,
+    val complexity: Int
+)
 
 data class AnalysisCompleted(
     val sourcePath: String,
@@ -42,7 +49,9 @@ data class PipelineCompleted(
     val coverageMeasured: Boolean,
     val outputDir: String?,
     val functions: List<FunctionCoverage>,
-    val warnings: List<String>
+    val warnings: List<String>,
+    val testCases: List<TestCase> = emptyList(),
+    val functionDetails: Map<String, FunctionDetail> = emptyMap()
 )
 
 data class PipelineFailed(

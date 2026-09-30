@@ -10,6 +10,7 @@ import com.example.agent.execution.ExecutionOutcome
 import com.example.agent.model.CodeStructure
 import com.example.agent.model.TestSuiteResult
 import com.example.agent.model.isTestable
+import com.example.agent.model.key
 import com.example.agent.source.SourceLoaderFactory
 import com.example.agent.storage.ArtifactStorage
 import com.example.agent.storage.ArtifactStore
@@ -118,7 +119,15 @@ class PipelineService(
                         coverageMeasured = report?.measured ?: false,
                         outputDir = outputDir?.takeIf { dir -> dir.isNotBlank() },
                         functions = report?.functions.orEmpty(),
-                        warnings = warnings
+                        warnings = warnings,
+                        testCases = suite.testCases,
+                        functionDetails = analysis.functions.associate {
+                            it.info.key() to FunctionDetail(
+                                fileName = it.source.file.fileName,
+                                packageName = it.info.packageName,
+                                complexity = it.info.cyclomaticComplexity
+                            )
+                        }
                     )
                 )
             }
