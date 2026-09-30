@@ -1,0 +1,103 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam shadowing false
+skinparam linetype ortho
+hide circle
+skinparam ranksep 50
+skinparam nodesep 40
+title ER-диаграмма базы истории запусков агента (SQLite)
+entity "artifact" as artifact {
+  *id : INTEGER <<PK>>
+  --
+  *run_id : TEXT <<FK>>
+  *kind : TEXT
+  *path : TEXT
+}
+entity "branch" as branch {
+  *id : INTEGER <<PK>>
+  --
+  *function_id : INTEGER <<FK>>
+  *code : TEXT
+  *label : TEXT
+  *state : TEXT
+}
+entity "case_origin" as case_origin #E4DFEC {
+  *id : INTEGER <<PK>>
+  --
+  *name : TEXT
+}
+entity "function_info" as function_info {
+  *id : INTEGER <<PK>>
+  --
+  *run_id : TEXT <<FK>>
+  source_file_id : INTEGER <<FK>>
+  *class_name : TEXT
+  *function_name : TEXT
+  *signature : TEXT
+  complexity : INTEGER
+  *total_branches : INTEGER
+  *covered_branches : INTEGER
+}
+entity "project" as project {
+  *id : INTEGER <<PK>>
+  --
+  *name : TEXT
+  *created_at : TEXT
+}
+entity "run" as run {
+  *id : TEXT <<PK>>
+  --
+  *project_id : INTEGER <<FK>>
+  *source_path : TEXT
+  *started_at : TEXT
+  *duration_ms : INTEGER
+  *status : TEXT
+  *coverage_measured : INTEGER
+  message : TEXT
+}
+entity "scenario_type" as scenario_type #E4DFEC {
+  *id : INTEGER <<PK>>
+  --
+  *name : TEXT
+}
+entity "source_file" as source_file {
+  *id : INTEGER <<PK>>
+  --
+  *project_id : INTEGER <<FK>>
+  *file_name : TEXT
+  *package_name : TEXT
+}
+entity "test_case" as test_case {
+  *id : INTEGER <<PK>>
+  --
+  *function_id : INTEGER <<FK>>
+  *code : TEXT
+  *scenario_type_id : INTEGER <<FK>>
+  *origin_id : INTEGER <<FK>>
+  *description : TEXT
+  expected_result : TEXT
+}
+entity "test_input" as test_input {
+  *id : INTEGER <<PK>>
+  --
+  *test_case_id : INTEGER <<FK>>
+  *param_name : TEXT
+  param_value : TEXT
+}
+run ||--o{ artifact : run_id
+function_info ||--o{ branch : function_id
+source_file |o--o{ function_info : source_file_id
+run ||--o{ function_info : run_id
+project ||--o{ run : project_id
+project ||--o{ source_file : project_id
+case_origin ||--o{ test_case : origin_id
+scenario_type ||--o{ test_case : scenario_type_id
+function_info ||--o{ test_case : function_id
+test_case ||--o{ test_input : test_case_id
+legend right
+  * обязательное поле (NOT NULL)
+  PK первичный ключ, FK внешний ключ
+  <back:#E4DFEC>      </back> справочная таблица
+endlegend
+@enduml
