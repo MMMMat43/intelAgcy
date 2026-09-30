@@ -5,6 +5,7 @@ import com.example.agent.api.dto.ErrorResponse
 import com.example.agent.api.dto.GenerateTestsRequest
 import com.example.agent.api.dto.GenerateTestsResponse
 import com.example.agent.api.dto.HealthResponse
+import com.example.agent.assembly.AgentAssembly
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
@@ -43,7 +44,7 @@ private fun PipelineService.GenerateTestsResult.toResponse() = GenerateTestsResp
     coverageMeasured = coverage?.measured ?: false
 )
 
-fun Application.configureRouting(pipelineService: PipelineService = PipelineService()) {
+fun Application.configureRouting(pipelineService: PipelineService = AgentAssembly.pipelineService()) {
     routing {
         get("/health") {
             call.respond(HealthResponse(status = "ok"))

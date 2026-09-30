@@ -6,7 +6,7 @@ import com.example.agent.model.ParameterInfo
 import com.example.agent.execution.TypeConversion
 import kotlin.random.Random
 
-enum class CandidateOrigin { HEURISTIC, BOUNDARY, SEARCH, LLM }
+enum class CandidateOrigin { HEURISTIC, BOUNDARY, SEARCH, PROVIDED }
 
 class CandidateContext(
     val info: FunctionInfo,

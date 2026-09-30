@@ -36,7 +36,7 @@ class CoverageGuidedGeneratorTest {
     @Test
     fun `guided generation covers every branch of SampleCalculator`() {
         val analysis = CoverageTestSupport.analysisOf("SampleCalculator.kt")
-        val result = CoverageGuidedGenerator(suggester = LlmUncoveredBranchSuggester(FailingClient())).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = LlmUncoveredBranchSuggester(FailingClient())).generate(analysis)
 
         val report = assertNotNull(result.report)
         assertTrue(result.measured)
@@ -51,7 +51,7 @@ class CoverageGuidedGeneratorTest {
         val before = heuristicCoverage("OrderProcessor.kt")
 
         val analysis = CoverageTestSupport.analysisOf("OrderProcessor.kt")
-        val result = CoverageGuidedGenerator(suggester = LlmUncoveredBranchSuggester(FailingClient())).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = LlmUncoveredBranchSuggester(FailingClient())).generate(analysis)
         val after = assertNotNull(result.report)
 
         println("OrderProcessor branch coverage: heuristics=${before.coveredBranches}/${before.totalBranches} " +
@@ -67,7 +67,7 @@ class CoverageGuidedGeneratorTest {
     @Test
     fun `generated suite re-measured independently matches reported coverage`() {
         val analysis = CoverageTestSupport.analysisOf("OrderProcessor.kt")
-        val result = CoverageGuidedGenerator(suggester = null).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
         val reported = assertNotNull(result.report)
         val remeasured = assertNotNull(SuiteCoverageMeter().measure(analysis, assertNotNull(result.suite).testCases))
 
@@ -78,7 +78,7 @@ class CoverageGuidedGeneratorTest {
     @Test
     fun `generated cases carry real outcomes and boundary values near thresholds`() {
         val analysis = CoverageTestSupport.analysisOf("OrderProcessor.kt")
-        val result = CoverageGuidedGenerator(suggester = null).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
         val suite = assertNotNull(result.suite)
 
         val discountCases = suite.testCases.filter { it.functionName == "calculateDiscount" }
@@ -104,7 +104,7 @@ class CoverageGuidedGeneratorTest {
             }
             """
         )
-        val result = CoverageGuidedGenerator(suggester = LlmUncoveredBranchSuggester(FailingClient())).generate(broken)
+        val result = CoverageGuidedGenerator(valueProvider = LlmUncoveredBranchSuggester(FailingClient())).generate(broken)
 
         assertFalse(result.measured)
         assertTrue(assertNotNull(result.suite).testCases.isNotEmpty())
@@ -129,14 +129,14 @@ class CoverageGuidedGeneratorTest {
             "```json\n[{\"code\": \"nope\"}, {\"code\": \"123abc\"}, {\"wrong\": 1}]\n```"
         )
         val result = CoverageGuidedGenerator(
-            suggester = LlmUncoveredBranchSuggester(client),
+            valueProvider = LlmUncoveredBranchSuggester(client),
             config = CoverageGeneratorConfig(searchAttempts = 0)
         ).generate(analysis)
 
         val report = assertNotNull(result.report)
         assertEquals(1.0, assertNotNull(report.branchCoverage), 0.0001)
         assertEquals(1, client.calls)
-        val llmCases = assertNotNull(result.suite).testCases.filter { it.id.contains("-llm-") }
+        val llmCases = assertNotNull(result.suite).testCases.filter { it.id.contains("-provided-") }
         assertEquals(1, llmCases.size)
         assertEquals("123abc", llmCases.single().inputData["code"])
         assertEquals(ExecutionOutcome.ReturnedValue("open"), result.outcomes[llmCases.single().id])
@@ -146,7 +146,7 @@ class CoverageGuidedGeneratorTest {
     fun `llm is not consulted when everything is already covered`() {
         val analysis = CoverageTestSupport.analysisOf("SampleCalculator.kt")
         val client = ScriptedClient("[]")
-        CoverageGuidedGenerator(suggester = LlmUncoveredBranchSuggester(client)).generate(analysis)
+        CoverageGuidedGenerator(valueProvider = LlmUncoveredBranchSuggester(client)).generate(analysis)
 
         assertEquals(0, client.calls)
     }

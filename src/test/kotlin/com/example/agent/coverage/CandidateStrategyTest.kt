@@ -81,11 +81,11 @@ class CandidateStrategyTest {
         val analysis = CoverageTestSupport.analysisOf("SampleCalculator.kt")
 
         val onlyHeuristics = CoverageGuidedGenerator(
-            suggester = null,
+            valueProvider = null,
             candidateStrategies = listOf(HeuristicCandidateStrategy()),
             config = CoverageGeneratorConfig(searchAttempts = 0)
         ).generate(analysis)
-        val standard = CoverageGuidedGenerator(suggester = null).generate(analysis)
+        val standard = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
 
         assertTrue(onlyHeuristics.report!!.coveredBranches <= standard.report!!.coveredBranches)
         assertEquals(7, standard.report!!.coveredBranches)
@@ -96,7 +96,7 @@ class CandidateStrategyTest {
         val analysis = CoverageTestSupport.analysisOf("SampleCalculator.kt")
         val seen = mutableListOf<String>()
 
-        CoverageGuidedGenerator(suggester = null, onFunctionGenerated = { coverage, _ -> seen += coverage.functionName })
+        CoverageGuidedGenerator(valueProvider = null, onFunctionGenerated = { coverage, _ -> seen += coverage.functionName })
             .generate(analysis)
 
         assertEquals(listOf("divide", "isPositive"), seen)

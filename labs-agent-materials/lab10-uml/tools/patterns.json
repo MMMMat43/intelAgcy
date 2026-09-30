@@ -1,0 +1,42 @@
+{
+  "colors": {
+    "Facade": "#FCE4D6",
+    "Strategy": "#DDEBF7",
+    "ConcreteStrategy": "#EAF3FA",
+    "Observer": "#E2F0D9",
+    "ConcreteObserver": "#F0F8EA",
+    "Subject": "#E2F0D9",
+    "FactoryMethod": "#FFF2CC",
+    "Repository": "#E4DFEC",
+    "ConcreteRepository": "#F1EEF6",
+    "Bridge": "#D9E1F2",
+    "Singleton": "#F8CBAD",
+    "SealedResult": "#D0CECE"
+  },
+  "patterns": [
+    {"class": "PipelineService", "stereotype": "Facade"},
+    {"class": "PipelineService", "stereotype": "Subject"},
+    {"class": "SourceLoader", "stereotype": "Strategy"},
+    {"class": "LocalFileSourceLoader", "stereotype": "ConcreteStrategy"},
+    {"class": "GitSourceLoader", "stereotype": "ConcreteStrategy"},
+    {"class": "SourceLoaderFactory", "stereotype": "FactoryMethod"},
+    {"class": "PipelineListener", "stereotype": "Observer"},
+    {"class": "ConsoleProgressListener", "stereotype": "ConcreteObserver"},
+    {"class": "RunRecordingListener", "stereotype": "ConcreteObserver"},
+    {"class": "RunRepository", "stereotype": "Repository"},
+    {"class": "InMemoryRunRepository", "stereotype": "ConcreteRepository"},
+    {"class": "ArtifactStore", "stereotype": "Bridge"},
+    {"class": "ArtifactStorage", "stereotype": "Bridge"},
+    {"class": "CandidateStrategy", "stereotype": "Strategy"},
+    {"class": "BoundaryVariationStrategy", "stereotype": "ConcreteStrategy"},
+    {"class": "HeuristicCandidateStrategy", "stereotype": "ConcreteStrategy"},
+    {"class": "CombinationStrategy", "stereotype": "ConcreteStrategy"},
+    {"class": "MutationStrategy", "stereotype": "Strategy"},
+    {"class": "NeighbourhoodMutationStrategy", "stereotype": "ConcreteStrategy"},
+    {"class": "TypeConversion", "stereotype": "Singleton"},
+    {"class": "KotlinPsi", "stereotype": "Singleton"},
+    {"class": "CompilationResult", "stereotype": "SealedResult"},
+    {"class": "ExecutionOutcome", "stereotype": "SealedResult"},
+    {"class": "ConversionResult", "stereotype": "SealedResult"}
+  ]
+}

@@ -5,9 +5,6 @@ import com.example.agent.api.PipelineService
 import com.example.agent.coverage.CoverageGuidedGenerator
 import com.example.agent.coverage.CoverageTestSupport
 import com.example.agent.coverage.NO_BRANCHES_WARNING
-import com.example.agent.generation.LlmUncoveredBranchSuggester
-import com.example.agent.llm.LlmClient
-import com.example.agent.llm.LlmResult
 import com.example.agent.source.KotlinSourceFile
 import com.example.agent.source.LocalFileSourceLoader
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -33,11 +30,7 @@ class InputRobustnessTest {
         }
     """.trimIndent()
 
-    private class FailingClient : LlmClient {
-        override fun complete(prompt: String): LlmResult = LlmResult.Failure("unavailable")
-    }
-
-    private fun pipeline() = PipelineService { FailingClient() }
+    private fun pipeline() = PipelineService()
 
     @Test
     fun `loader strips byte order mark`(@TempDir tempDir: Path) {
@@ -128,7 +121,7 @@ class InputRobustnessTest {
             """
         )
 
-        val result = CoverageGuidedGenerator(suggester = LlmUncoveredBranchSuggester(FailingClient())).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
 
         assertNull(result.report?.branchCoverage)
         assertFalse(result.measured)
@@ -147,7 +140,7 @@ class InputRobustnessTest {
             """
         )
 
-        val result = CoverageGuidedGenerator(suggester = null).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
 
         assertNull(result.report?.branchCoverage)
         assertTrue(result.warnings.contains(NO_BRANCHES_WARNING))
@@ -157,7 +150,7 @@ class InputRobustnessTest {
     fun `character predicates in loops give the search a string containing them`() {
         val analysis = CoverageTestSupport.analysisOf("SampleStringUtils.kt")
 
-        val result = CoverageGuidedGenerator(suggester = null).generate(analysis)
+        val result = CoverageGuidedGenerator(valueProvider = null).generate(analysis)
 
         val report = assertNotNull(result.report)
         val containsDigit = report.functions.first { it.functionName == "containsDigit" }

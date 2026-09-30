@@ -2,6 +2,7 @@ package com.example.agent
 
 import com.example.agent.api.ConsoleProgressListener
 import com.example.agent.api.PipelineService
+import com.example.agent.assembly.AgentAssembly
 import com.example.agent.source.SourceLoaderFactory
 import com.example.agent.storage.ArtifactStorage
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -20,7 +21,7 @@ fun main(args: Array<String>) {
         return
     }
 
-    val pipeline = PipelineService(
+    val pipeline = AgentAssembly.pipelineService(
         listeners = listOf(ConsoleProgressListener()),
         sourceLoaderFactory = SourceLoaderFactory(allowRemote = true)
     )

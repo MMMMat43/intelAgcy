@@ -11,7 +11,6 @@ import com.example.agent.execution.TestCaseExecutor
 import com.example.agent.execution.TypeConversion
 import com.example.agent.execution.dispose
 import com.example.agent.generation.HeuristicScenarioGenerator
-import com.example.agent.generation.LlmUncoveredBranchSuggester
 import com.example.agent.generation.TestCasePostProcessor
 import com.example.agent.model.FunctionInfo
 import com.example.agent.model.ParameterInfo
@@ -51,7 +50,7 @@ private class FunctionResult(
 class CoverageGuidedGenerator(
     private val heuristic: HeuristicScenarioGenerator = HeuristicScenarioGenerator(),
     private val extractor: BoundaryConditionExtractor = BoundaryConditionExtractor(),
-    private val suggester: LlmUncoveredBranchSuggester? = null,
+    private val valueProvider: BranchValueProvider? = null,
     private val config: CoverageGeneratorConfig = CoverageGeneratorConfig(),
     candidateStrategies: List<CandidateStrategy>? = null,
     private val mutationStrategy: MutationStrategy = NeighbourhoodMutationStrategy(),
@@ -206,11 +205,11 @@ class CoverageGuidedGenerator(
             }
         }
 
-        if (uncovered.isNotEmpty() && suggester != null) {
+        if (uncovered.isNotEmpty() && valueProvider != null) {
             val labels = uncovered.mapNotNull { probeByIndex[it]?.label }
-            suggester.suggest(info, labels).forEach { vector ->
+            valueProvider.propose(info, labels).forEach { vector ->
                 if (uncovered.isEmpty()) return@forEach
-                val execution = run(vector, CandidateOrigin.LLM) ?: return@forEach
+                val execution = run(vector, CandidateOrigin.PROVIDED) ?: return@forEach
                 if (execution.usable && (execution.covered - coveredSoFar).isNotEmpty()) {
                     select(execution)
                     uncovered = instrumentableIndexes - coveredSoFar
@@ -233,8 +232,8 @@ class CoverageGuidedGenerator(
         val cases = mutableListOf<TestCase>()
         val outcomes = LinkedHashMap<String, ExecutionOutcome>()
 
-        fun emit(execution: Execution, description: String, llm: Boolean = false) {
-            val id = if (llm) "${info.name}-llm-${counter.incrementAndGet()}" else "${info.name}-${counter.incrementAndGet()}"
+        fun emit(execution: Execution, description: String, provided: Boolean = false) {
+            val id = if (provided) "${info.name}-provided-${counter.incrementAndGet()}" else "${info.name}-${counter.incrementAndGet()}"
             cases += buildCase(info, id, execution, description, hints, typical, extremes)
             outcomes[id] = execution.outcome
         }
@@ -243,9 +242,9 @@ class CoverageGuidedGenerator(
         selected.values.forEach { execution ->
             val gained = (execution.covered - alreadyCovered).sorted().mapNotNull { probeByIndex[it]?.label }
             alreadyCovered += execution.covered
-            val prefix = if (execution.origin == CandidateOrigin.LLM) "Предложено LLM, покрывает" else "Покрывает"
+            val prefix = if (execution.origin == CandidateOrigin.PROVIDED) "Значения из внешнего источника, покрывает" else "Покрывает"
             val text = if (gained.isEmpty()) "Проверка типичного входа" else "$prefix ветку ${gained.take(2).joinToString("; ")}"
-            emit(execution, "$text: вход ${vectorText(info, execution.vector)}", execution.origin == CandidateOrigin.LLM)
+            emit(execution, "$text: вход ${vectorText(info, execution.vector)}", execution.origin == CandidateOrigin.PROVIDED)
         }
         representatives.values.forEach { execution ->
             emit(execution, "${outcomeText(execution.outcome)}: вход ${vectorText(info, execution.vector)}")
@@ -316,7 +315,8 @@ class CoverageGuidedGenerator(
                 "Вызвать ${info.className}.${info.name}",
                 "Проверить результат: ${expected ?: "не определён"}"
             ),
-            signature = info.signature()
+            signature = info.signature(),
+            origin = execution.origin.name
         )
     }
 

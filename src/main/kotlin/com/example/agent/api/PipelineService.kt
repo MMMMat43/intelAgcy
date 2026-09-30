@@ -2,14 +2,11 @@ package com.example.agent.api
 
 import com.example.agent.analysis.KotlinCodeAnalyzer
 import com.example.agent.codegen.JUnit5TestCodeGenerator
+import com.example.agent.coverage.BranchValueProvider
 import com.example.agent.coverage.CoverageGenerationResult
 import com.example.agent.coverage.CoverageGuidedGenerator
 import com.example.agent.coverage.CoverageReport
 import com.example.agent.execution.ExecutionOutcome
-import com.example.agent.generation.LlmUncoveredBranchSuggester
-import com.example.agent.llm.LlmClient
-import com.example.agent.llm.LlmConfig
-import com.example.agent.llm.OpenAiCompatibleLlmClient
 import com.example.agent.model.CodeStructure
 import com.example.agent.model.TestSuiteResult
 import com.example.agent.model.isTestable
@@ -24,7 +21,7 @@ class PipelineService(
     private val listeners: List<PipelineListener> = emptyList(),
     private val sourceLoaderFactory: SourceLoaderFactory = SourceLoaderFactory(),
     private val artifactStoreFactory: (Path) -> ArtifactStore = { ArtifactStorage(it) },
-    private val llmClientFactory: () -> LlmClient = { OpenAiCompatibleLlmClient(LlmConfig.fromEnv()) }
+    private val valueProviderFactory: () -> BranchValueProvider? = { null }
 ) {
 
     class InvalidSourceException(message: String) : RuntimeException(message)
@@ -66,7 +63,7 @@ class PipelineService(
             }
 
             val generation: CoverageGenerationResult = CoverageGuidedGenerator(
-                suggester = LlmUncoveredBranchSuggester(llmClientFactory()),
+                valueProvider = valueProviderFactory(),
                 onFunctionGenerated = { coverage, cases ->
                     notify { it.onFunctionProcessed(FunctionProcessed(sourcePath, coverage, cases)) }
                 }

@@ -2,8 +2,6 @@ package com.example.agent.storage
 
 import com.example.agent.api.PipelineService
 import com.example.agent.api.RunRecordingListener
-import com.example.agent.llm.LlmClient
-import com.example.agent.llm.LlmResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -13,10 +11,6 @@ import org.junit.jupiter.api.assertThrows
 import java.time.Instant
 
 class RunRepositoryTest {
-
-    private class Unavailable : LlmClient {
-        override fun complete(prompt: String): LlmResult = LlmResult.Failure("unavailable")
-    }
 
     private fun record(source: String, at: Instant, status: RunStatus = RunStatus.COMPLETED) = RunRecord(
         sourcePath = source,
@@ -63,7 +57,7 @@ class RunRepositoryTest {
     fun `recording listener stores a completed run with per function data`() {
         val repository = InMemoryRunRepository()
         val service = PipelineService(
-            llmClientFactory = { Unavailable() },
+            valueProviderFactory = { null },
             listeners = listOf(RunRecordingListener(repository))
         )
 
@@ -83,7 +77,7 @@ class RunRepositoryTest {
     fun `recording listener stores a failed run and the error is still thrown`() {
         val repository = InMemoryRunRepository()
         val service = PipelineService(
-            llmClientFactory = { Unavailable() },
+            valueProviderFactory = { null },
             listeners = listOf(RunRecordingListener(repository))
         )
 

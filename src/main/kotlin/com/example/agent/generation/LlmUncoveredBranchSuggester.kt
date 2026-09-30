@@ -1,5 +1,6 @@
 package com.example.agent.generation
 
+import com.example.agent.coverage.BranchValueProvider
 import com.example.agent.execution.ConversionResult
 import com.example.agent.execution.TypeConversion
 import com.example.agent.llm.LlmClient
@@ -12,7 +13,10 @@ import com.fasterxml.jackson.databind.ObjectMapper
 class LlmUncoveredBranchSuggester(
     private val client: LlmClient,
     private val maxSuggestions: Int = 20
-) {
+) : BranchValueProvider {
+
+    override fun propose(function: FunctionInfo, uncoveredBranches: List<String>): List<Map<String, String?>> =
+        suggest(function, uncoveredBranches)
 
     fun suggest(function: FunctionInfo, uncoveredBranches: List<String>): List<Map<String, String?>> {
         if (uncoveredBranches.isEmpty()) return emptyList()

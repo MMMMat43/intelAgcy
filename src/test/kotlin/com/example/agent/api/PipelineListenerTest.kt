@@ -1,7 +1,5 @@
 package com.example.agent.api
 
-import com.example.agent.llm.LlmClient
-import com.example.agent.llm.LlmResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -12,10 +10,6 @@ import java.io.PrintStream
 import java.nio.file.Path
 
 class PipelineListenerTest {
-
-    private class Unavailable : LlmClient {
-        override fun complete(prompt: String): LlmResult = LlmResult.Failure("unavailable")
-    }
 
     private class Recorder : PipelineListener {
         val events = mutableListOf<String>()
@@ -55,7 +49,7 @@ class PipelineListenerTest {
     }
 
     private fun service(vararg listeners: PipelineListener) =
-        PipelineService(llmClientFactory = { Unavailable() }, listeners = listeners.toList())
+        PipelineService(valueProviderFactory = { null }, listeners = listeners.toList())
 
     @Test
     fun `listener receives stage events in pipeline order`(@TempDir out: Path) {
@@ -123,7 +117,7 @@ class PipelineListenerTest {
 
     @Test
     fun `pipeline without listeners behaves as before`() {
-        val result = PipelineService(llmClientFactory = { Unavailable() })
+        val result = PipelineService(valueProviderFactory = { null })
             .generateTests("src/test/resources/SampleCalculator.kt", null)
 
         assertEquals(2, result.functionsCount)

@@ -1,0 +1,87 @@
+{
+  "exclude_files": [
+    "api/Routes.kt",
+    "api/Server.kt",
+    "assembly/AgentAssembly.kt",
+    "coverage/BranchValueProvider.kt",
+    "generation/LlmUncoveredBranchSuggester.kt"
+  ],
+  "exclude_packages": ["llm"],
+  "package_diagram": {
+    "title": "Зависимости между пакетами агента",
+    "file": "00-packages.puml",
+    "packages": [
+      "com.example.agent.api",
+      "com.example.agent.source",
+      "com.example.agent.analysis",
+      "com.example.agent.coverage",
+      "com.example.agent.execution",
+      "com.example.agent.codegen",
+      "com.example.agent.generation",
+      "com.example.agent.storage",
+      "com.example.agent.model"
+    ]
+  },
+  "groups": [
+    {
+      "title": "Диаграмма 1. Загрузка исходников (Strategy, Factory Method)",
+      "file": "01-source.puml",
+      "classes": ["SourceLoader", "LocalFileSourceLoader", "GitSourceLoader", "SourceLoaderFactory", "KotlinSourceFile"],
+      "notes": [
+        ["SourceLoaderFactory", "create(location) выбирает загрузчик:\nпуть на диске или адрес репозитория"],
+        ["SourceLoader", "Общий интерфейс источников исходников"]
+      ]
+    },
+    {
+      "title": "Диаграмма 2. Конвейер и наблюдатели (Facade, Observer)",
+      "file": "02-pipeline.puml",
+      "classes": ["PipelineService", "PipelineListener", "ConsoleProgressListener", "RunRecordingListener",
+        "AnalysisCompleted", "FunctionProcessed", "SuiteGenerated", "ArtifactsSaved", "PipelineCompleted", "PipelineFailed"],
+      "stubs": false,
+      "notes": [
+        ["PipelineService", "Единая точка входа: скрывает порядок этапов.\nРассылает события подписчикам,\nсбой подписчика не прерывает работу"],
+        ["PipelineListener", "Подписчик реализует только нужные события"]
+      ]
+    },
+    {
+      "title": "Диаграмма 3. Хранение результатов (Repository, Bridge)",
+      "file": "03-storage.puml",
+      "classes": ["ArtifactStore", "ArtifactStorage", "RunRepository", "InMemoryRunRepository", "RunRecord", "FunctionRunRecord", "RunStatus"],
+      "stubs": false,
+      "notes": [
+        ["RunRepository", "Доступ к истории запусков\nчерез интерфейс, без привязки к хранилищу"],
+        ["ArtifactStore", "Конвейер знает только интерфейс"]
+      ]
+    },
+    {
+      "title": "Диаграмма 4. Анализ кода и модель данных (Singleton)",
+      "file": "04-analysis.puml",
+      "classes": ["KotlinCodeAnalyzer", "KotlinPsi", "AnalysisResult", "AnalyzedFunction", "ParsedSource",
+        "CodeStructure", "FunctionInfo", "ParameterInfo", "TestCase", "TestSuiteResult"],
+      "stubs": false
+    },
+    {
+      "title": "Диаграмма 5. Ядро подбора тестов по покрытию (Strategy)",
+      "file": "05-coverage.puml",
+      "classes": ["CoverageGuidedGenerator", "CandidateStrategy", "BoundaryVariationStrategy", "HeuristicCandidateStrategy",
+        "CombinationStrategy", "MutationStrategy", "NeighbourhoodMutationStrategy", "CandidatePool", "CandidateContext",
+        "BoundaryConditionExtractor", "BranchInstrumenter", "InstrumentedRunner", "CoverageReport", "FunctionCoverage"],
+      "stubs": false,
+      "max_members": 5,
+      "notes": [
+        ["CandidateStrategy", "Источники входных значений\nзадаются списком в конструкторе генератора"],
+        ["MutationStrategy", "Способ поиска значений\nдля непокрытых ветвей"]
+      ]
+    },
+    {
+      "title": "Диаграмма 6. Выполнение и генерация тестов (Sealed result, Singleton)",
+      "file": "06-execution.puml",
+      "classes": ["KotlinInMemoryCompiler", "CompilationResult", "TestCaseExecutor", "ExecutionOutcome", "TypeConversion",
+        "ConversionResult", "JUnit5TestCodeGenerator"],
+      "stubs": false,
+      "notes": [
+        ["ExecutionOutcome", "Закрытый набор исходов:\nзначение, исключение, не выполнено"]
+      ]
+    }
+  ]
+}

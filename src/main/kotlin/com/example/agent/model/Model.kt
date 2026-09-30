@@ -71,7 +71,8 @@ data class TestCase(
     val inputData: Map<String, String?>,
     val expectedResult: String?,
     val steps: List<String>,
-    val signature: String = ""
+    val signature: String = "",
+    val origin: String = "HEURISTIC"
 )
 
 data class TestSuiteResult(
