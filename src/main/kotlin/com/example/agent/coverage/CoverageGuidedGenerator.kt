@@ -32,15 +32,11 @@ data class CoverageGeneratorConfig(
     val seed: Long = 42
 )
 
-private enum class Origin { HEURISTIC, BOUNDARY, SEARCH, LLM }
-
-private val STRING_ALPHABET = listOf("0", "7", "A", "z", " ", "-", "_", ".")
-
 private class Execution(
     val vector: Map<String, String?>,
     val outcome: ExecutionOutcome,
     val covered: Set<Int>,
-    val origin: Origin
+    val origin: CandidateOrigin
 ) {
     val usable: Boolean get() = outcome !is ExecutionOutcome.CouldNotExecute
 }
@@ -56,8 +52,13 @@ class CoverageGuidedGenerator(
     private val heuristic: HeuristicScenarioGenerator = HeuristicScenarioGenerator(),
     private val extractor: BoundaryConditionExtractor = BoundaryConditionExtractor(),
     private val suggester: LlmUncoveredBranchSuggester? = null,
-    private val config: CoverageGeneratorConfig = CoverageGeneratorConfig()
+    private val config: CoverageGeneratorConfig = CoverageGeneratorConfig(),
+    candidateStrategies: List<CandidateStrategy>? = null,
+    private val mutationStrategy: MutationStrategy = NeighbourhoodMutationStrategy(),
+    private val onFunctionGenerated: (FunctionCoverage, Int) -> Unit = { _, _ -> }
 ) {
+
+    private val strategies: List<CandidateStrategy> = candidateStrategies ?: standardCandidateStrategies(heuristic)
 
     private val counter = AtomicInteger(0)
 
@@ -85,6 +86,7 @@ class CoverageGuidedGenerator(
 
         analysis.functions.filter { it.info.isTestable() }.forEach { analyzed ->
             val result = generateForFunction(runner, analyzed)
+            runCatching { onFunctionGenerated(result.coverage, result.cases.size) }
             cases += result.cases
             outcomes += result.outcomes
             reports += result.coverage
@@ -149,7 +151,7 @@ class CoverageGuidedGenerator(
         val executions = LinkedHashMap<Map<String, String?>, Execution>()
         val warnings = mutableListOf<String>()
 
-        fun run(vector: Map<String, String?>, origin: Origin): Execution? {
+        fun run(vector: Map<String, String?>, origin: CandidateOrigin): Execution? {
             if (executions.containsKey(vector)) return null
             if (!allConvertible(info, vector)) return null
             val testCase = syntheticCase(info, vector)
@@ -159,7 +161,8 @@ class CoverageGuidedGenerator(
             return execution
         }
 
-        val pool = buildPool(info, hints, random)
+        val context = CandidateContext(info, hints, config, random)
+        val pool = buildPool(context)
         for ((vector, origin) in pool) {
             if (System.currentTimeMillis() > deadline) break
             run(vector, origin)
@@ -191,8 +194,8 @@ class CoverageGuidedGenerator(
                 val parentPool = if (selected.isNotEmpty() && random.nextInt(10) < 6) selected.values.toList() else archive
                 if (parentPool.isEmpty()) break
                 val parent = parentPool[random.nextInt(parentPool.size)]
-                val mutant = mutate(info, hints, parent.vector, random)
-                val execution = run(mutant, Origin.SEARCH) ?: continue
+                val mutant = mutationStrategy.mutate(context, parent.vector)
+                val execution = run(mutant, CandidateOrigin.SEARCH) ?: continue
                 if (execution.usable) {
                     archive += execution
                     if ((execution.covered - coveredSoFar).isNotEmpty()) {
@@ -207,7 +210,7 @@ class CoverageGuidedGenerator(
             val labels = uncovered.mapNotNull { probeByIndex[it]?.label }
             suggester.suggest(info, labels).forEach { vector ->
                 if (uncovered.isEmpty()) return@forEach
-                val execution = run(vector, Origin.LLM) ?: return@forEach
+                val execution = run(vector, CandidateOrigin.LLM) ?: return@forEach
                 if (execution.usable && (execution.covered - coveredSoFar).isNotEmpty()) {
                     select(execution)
                     uncovered = instrumentableIndexes - coveredSoFar
@@ -240,9 +243,9 @@ class CoverageGuidedGenerator(
         selected.values.forEach { execution ->
             val gained = (execution.covered - alreadyCovered).sorted().mapNotNull { probeByIndex[it]?.label }
             alreadyCovered += execution.covered
-            val prefix = if (execution.origin == Origin.LLM) "Предложено LLM, покрывает" else "Покрывает"
+            val prefix = if (execution.origin == CandidateOrigin.LLM) "Предложено LLM, покрывает" else "Покрывает"
             val text = if (gained.isEmpty()) "Проверка типичного входа" else "$prefix ветку ${gained.take(2).joinToString("; ")}"
-            emit(execution, "$text: вход ${vectorText(info, execution.vector)}", execution.origin == Origin.LLM)
+            emit(execution, "$text: вход ${vectorText(info, execution.vector)}", execution.origin == CandidateOrigin.LLM)
         }
         representatives.values.forEach { execution ->
             emit(execution, "${outcomeText(execution.outcome)}: вход ${vectorText(info, execution.vector)}")
@@ -337,7 +340,7 @@ class CoverageGuidedGenerator(
         val typical = typicalVector(info)
         val groups = LinkedHashMap<String, MutableList<Execution>>()
         executions
-            .filter { it.usable && it.vector !in excluded && (it.origin == Origin.BOUNDARY || it.origin == Origin.HEURISTIC) }
+            .filter { it.usable && it.vector !in excluded && (it.origin == CandidateOrigin.BOUNDARY || it.origin == CandidateOrigin.HEURISTIC) }
             .forEach { execution ->
                 val varied = info.parameters.filter { execution.vector[it.name] != typical[it.name] }.map { it.name }
                 if (varied.size == 1) groups.getOrPut(varied.first()) { mutableListOf() } += execution
@@ -360,190 +363,14 @@ class CoverageGuidedGenerator(
         return result
     }
 
-    private fun buildPool(
-        info: FunctionInfo,
-        hints: BoundaryHints,
-        random: Random
-    ): List<Pair<Map<String, String?>, Origin>> {
-        val typical = typicalVector(info)
-        val domains = info.parameters.associate { it.name to domain(it, hints) }
-        val booleanParameters = info.parameters.filter { TypeConversion.normalize(it.type) == "Boolean" }.take(4)
-
-        val bases = mutableListOf<Map<String, String?>>()
-        val combinations = 1 shl booleanParameters.size
-        for (mask in 0 until combinations) {
-            val base = LinkedHashMap(typical)
-            booleanParameters.forEachIndexed { index, parameter ->
-                base[parameter.name] = if ((mask shr index) and 1 == 0) "true" else "false"
-            }
-            bases += base
-        }
-
-        val pool = LinkedHashMap<Map<String, String?>, Origin>()
-        bases.forEach { pool.putIfAbsent(it, Origin.BOUNDARY) }
-
-        bases.forEach { base ->
-            info.parameters.forEach { parameter ->
-                domains.getValue(parameter.name).forEach { value ->
-                    val vector = LinkedHashMap(base)
-                    vector[parameter.name] = value
-                    pool.putIfAbsent(vector, Origin.BOUNDARY)
-                }
-            }
-        }
-
-        heuristic.generate(info).forEach { pool.putIfAbsent(it.inputData, Origin.HEURISTIC) }
-
-        var product = 1L
-        domains.values.forEach { product = minOf(product * maxOf(it.size, 1), Long.MAX_VALUE / 1000) }
-        val remaining = config.maxCandidatesPerFunction - pool.size
-        if (remaining > 0 && info.parameters.isNotEmpty()) {
-            if (product <= remaining) {
-                cartesian(info.parameters, domains).forEach { pool.putIfAbsent(it, Origin.BOUNDARY) }
-            } else {
-                var attempts = 0
-                while (pool.size < config.maxCandidatesPerFunction && attempts < remaining * 6) {
-                    attempts++
-                    val vector = LinkedHashMap<String, String?>()
-                    info.parameters.forEach { parameter ->
-                        val values = domains.getValue(parameter.name)
-                        vector[parameter.name] = values[random.nextInt(values.size)]
-                    }
-                    pool.putIfAbsent(vector, Origin.BOUNDARY)
-                }
-            }
-        }
-
-        return pool.entries.take(config.maxCandidatesPerFunction).map { it.key to it.value }
-    }
-
-    private fun cartesian(
-        parameters: List<ParameterInfo>,
-        domains: Map<String, List<String?>>
-    ): List<Map<String, String?>> {
-        var result: List<Map<String, String?>> = listOf(emptyMap())
-        parameters.forEach { parameter ->
-            result = result.flatMap { partial ->
-                domains.getValue(parameter.name).map { value -> LinkedHashMap(partial).also { it[parameter.name] = value } }
-            }
-        }
-        return result
-    }
-
-    private fun domain(parameter: ParameterInfo, hints: BoundaryHints): List<String?> {
-        val type = TypeConversion.normalize(parameter.type)
-        val values = LinkedHashSet<String?>()
-        values += typicalValue(parameter)
-        hints.values[parameter.name]?.let { values.addAll(it) }
-        when {
-            type == "Boolean" -> {
-                values += "true"
-                values += "false"
-            }
-            NumericFormat.isNumeric(type) -> {
-                values += "0"
-                values += "-1"
-            }
-            type == "String" -> values += ""
-            type == "Char" -> {
-                values += " "
-                values += "0"
-            }
-        }
-        if (parameter.nullable) values += null
-        return values.filter { allConvertible(parameter, it) }
-    }
-
-    private fun mutate(
-        info: FunctionInfo,
-        hints: BoundaryHints,
-        parent: Map<String, String?>,
-        random: Random
-    ): Map<String, String?> {
-        val vector = LinkedHashMap(parent)
-        if (info.parameters.isEmpty()) return vector
-        val changes = if (info.parameters.size > 1 && random.nextInt(3) == 0) 2 else 1
-        repeat(changes) {
-            val parameter = info.parameters[random.nextInt(info.parameters.size)]
-            vector[parameter.name] = mutateValue(info, parameter, hints, vector, random)
-        }
-        return vector
-    }
-
-    private fun mutateValue(
-        info: FunctionInfo,
-        parameter: ParameterInfo,
-        hints: BoundaryHints,
-        vector: Map<String, String?>,
-        random: Random
-    ): String? {
-        val type = TypeConversion.normalize(parameter.type)
-        if (parameter.nullable && random.nextInt(10) == 0) return null
-        val current = vector[parameter.name]
-        return when {
-            type == "Boolean" -> if (current == "true") "false" else "true"
-            type == "Char" -> listOf("a", " ", "0", "Z")[random.nextInt(4)]
-            type == "String" -> {
-                val hinted = hints.values[parameter.name].orEmpty().filterNotNull()
-                when (random.nextInt(5)) {
-                    0 -> if (hinted.isNotEmpty()) hinted[random.nextInt(hinted.size)] else "a"
-                    1 -> (current ?: "") + "a"
-                    2 -> (current ?: "").dropLast(1)
-                    3 -> (current ?: "") + STRING_ALPHABET[random.nextInt(STRING_ALPHABET.size)]
-                    else -> ""
-                }
-            }
-            NumericFormat.isNumeric(type) -> mutateNumber(info, parameter, type, hints, vector, current, random)
-            else -> current
-        }
-    }
-
-    private fun mutateNumber(
-        info: FunctionInfo,
-        parameter: ParameterInfo,
-        type: String,
-        hints: BoundaryHints,
-        vector: Map<String, String?>,
-        current: String?,
-        random: Random
-    ): String? {
-        val value = current?.toDoubleOrNull() ?: 1.0
-        val others = info.parameters
-            .filter { it.name != parameter.name && NumericFormat.isNumeric(TypeConversion.normalize(it.type)) }
-            .mapNotNull { vector[it.name]?.toDoubleOrNull() }
-            .filter { it != 0.0 }
-        val constants = hints.constants
-        val candidate = when (random.nextInt(9)) {
-            0 -> value * 2
-            1 -> value / 2
-            2 -> value * 10
-            3 -> value / 10
-            4 -> value + 1
-            5 -> value - 1
-            6 -> if (constants.isNotEmpty()) constants[random.nextInt(constants.size)] else value + 1
-            7 -> if (constants.isNotEmpty() && others.isNotEmpty()) {
-                constants[random.nextInt(constants.size)] / others[random.nextInt(others.size)]
-            } else {
-                -value
-            }
-            else -> if (constants.isNotEmpty() && others.isNotEmpty()) {
-                constants[random.nextInt(constants.size)] * others[random.nextInt(others.size)]
-            } else {
-                value * 3
-            }
-        }
-        return NumericFormat.format(type, candidate)
+    private fun buildPool(context: CandidateContext): List<Pair<Map<String, String?>, CandidateOrigin>> {
+        val pool = CandidatePool(config.maxCandidatesPerFunction)
+        strategies.forEach { it.fill(context, pool) }
+        return pool.ordered()
     }
 
     private fun typicalVector(info: FunctionInfo): Map<String, String?> =
-        info.parameters.associate { it.name to typicalValue(it) }
-
-    private fun typicalValue(parameter: ParameterInfo): String? = when (TypeConversion.normalize(parameter.type)) {
-        "Boolean" -> "true"
-        "String" -> "example"
-        "Char" -> "a"
-        else -> "1"
-    }
+        CandidateSupport.typicalVector(info)
 
     private fun extremeValues(): Set<String> = setOf(
         Int.MIN_VALUE.toString(), Int.MAX_VALUE.toString(),
@@ -592,11 +419,7 @@ class CoverageGuidedGenerator(
     )
 
     private fun allConvertible(info: FunctionInfo, vector: Map<String, String?>): Boolean =
-        info.parameters.all { allConvertible(it, vector[it.name]) }
-
-    private fun allConvertible(parameter: ParameterInfo, value: String?): Boolean =
-        TypeConversion.convert(parameter.type, parameter.nullable, value) is ConversionResult.Converted
-
+        info.parameters.all { CandidateSupport.allConvertible(it, vector[it.name]) }
     private fun findFunction(functions: List<FunctionInfo>, testCase: TestCase): FunctionInfo? {
         val candidates = functions.filter { it.className == testCase.className && it.name == testCase.functionName }
         if (testCase.signature.isNotEmpty()) {

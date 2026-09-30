@@ -21,30 +21,30 @@ import java.nio.file.Path
  * <outputDir>/generated-tests/<PackageAsPath>/GeneratedTests.kt
  * ```
  */
-class ArtifactStorage(private val outputDir: Path) {
+class ArtifactStorage(private val outputDir: Path) : ArtifactStore {
 
     private val objectMapper: ObjectMapper = ObjectMapper()
         .registerKotlinModule()
         .enable(SerializationFeature.INDENT_OUTPUT)
 
-    fun saveAnalysis(structure: CodeStructure) {
+    override fun saveAnalysis(structure: CodeStructure) {
         Files.createDirectories(outputDir)
         val target = outputDir.resolve("analysis.json")
         objectMapper.writeValue(target.toFile(), structure)
     }
 
-    fun saveTestCases(testSuite: TestSuiteResult) {
+    override fun saveTestCases(testSuite: TestSuiteResult) {
         Files.createDirectories(outputDir)
         val target = outputDir.resolve("test-cases.json")
         objectMapper.writeValue(target.toFile(), testSuite)
     }
 
-    fun saveCoverage(report: CoverageReport) {
+    override fun saveCoverage(report: CoverageReport) {
         Files.createDirectories(outputDir)
         objectMapper.writeValue(outputDir.resolve("coverage.json").toFile(), report)
     }
 
-    fun saveGeneratedTestCode(fileSpec: FileSpec) {
+    override fun saveGeneratedTestCode(fileSpec: FileSpec) {
         val generatedTestsDir = outputDir.resolve("generated-tests")
         Files.createDirectories(generatedTestsDir)
         fileSpec.writeTo(generatedTestsDir)

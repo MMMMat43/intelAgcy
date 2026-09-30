@@ -1,6 +1,8 @@
 package com.example.agent
 
+import com.example.agent.api.ConsoleProgressListener
 import com.example.agent.api.PipelineService
+import com.example.agent.source.SourceLoaderFactory
 import com.example.agent.storage.ArtifactStorage
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
@@ -18,7 +20,10 @@ fun main(args: Array<String>) {
         return
     }
 
-    val pipeline = PipelineService()
+    val pipeline = PipelineService(
+        listeners = listOf(ConsoleProgressListener()),
+        sourceLoaderFactory = SourceLoaderFactory(allowRemote = true)
+    )
     val outputDir = parseOutputArgument(args)
 
     println("Source: $source")

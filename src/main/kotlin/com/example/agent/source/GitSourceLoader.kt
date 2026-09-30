@@ -10,6 +10,7 @@ class GitSourceLoader(
 ) : SourceLoader {
 
     override fun load(location: String): List<KotlinSourceFile> {
+        require(location.isNotBlank() && !location.startsWith("-")) { "Invalid repository location: $location" }
         val targetDir = Files.createTempDirectory("intelligent-test-agent-git-").toFile()
         try {
             cloneRepository(location, targetDir)
@@ -20,7 +21,7 @@ class GitSourceLoader(
     }
 
     private fun cloneRepository(repositoryUrl: String, targetDir: File) {
-        val process = ProcessBuilder("git", "clone", "--depth", "1", repositoryUrl, targetDir.path)
+        val process = ProcessBuilder("git", "clone", "--depth", "1", "--", repositoryUrl, targetDir.path)
             .redirectErrorStream(true)
             .start()
 
