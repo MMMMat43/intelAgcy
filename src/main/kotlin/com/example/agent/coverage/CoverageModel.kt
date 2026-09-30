@@ -24,7 +24,7 @@ data class FunctionCoverage(
     val functionName: String,
     val totalBranches: Int,
     val coveredBranches: Int,
-    val branchCoverage: Double,
+    val branchCoverage: Double?,
     val covered: List<BranchDescription>,
     val notFoundWithinBudget: List<BranchDescription>,
     val notInstrumentable: List<BranchDescription>,
@@ -35,8 +35,9 @@ data class CoverageReport(
     val measured: Boolean,
     val totalBranches: Int,
     val coveredBranches: Int,
-    val branchCoverage: Double,
-    val functions: List<FunctionCoverage>
+    val branchCoverage: Double?,
+    val functions: List<FunctionCoverage>,
+    val note: String? = null
 )
 
 data class CoverageGenerationResult(
@@ -47,4 +48,9 @@ data class CoverageGenerationResult(
     val warnings: List<String>
 )
 
-fun ratio(covered: Int, total: Int): Double = if (total == 0) 1.0 else covered.toDouble() / total.toDouble()
+fun ratio(covered: Int, total: Int): Double? = if (total == 0) null else covered.toDouble() / total.toDouble()
+
+const val NO_BRANCHES_WARNING = "В файле нет тестируемых функций или ветвей: покрытие не вычислялось"
+
+fun emptyCoverageReport(): CoverageReport =
+    CoverageReport(false, 0, 0, null, emptyList(), NO_BRANCHES_WARNING)

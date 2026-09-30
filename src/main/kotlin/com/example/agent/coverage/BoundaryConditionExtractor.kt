@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtConstantExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtExpression
+import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtLiteralStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtParenthesizedExpression
@@ -107,6 +108,12 @@ class BoundaryConditionExtractor {
         val evaluator = ConstantEvaluator(fileConstants(analyzed))
         val locals = LinkedHashMap<String, Set<String>>()
 
+        body.collectAll(KtForExpression::class.java).forEach { loop ->
+            val name = loop.loopParameter?.name ?: return@forEach
+            val range = loop.loopRange ?: return@forEach
+            locals[name] = dependencies(range, parameterTypes.keys, locals)
+        }
+
         body.collectAll(KtProperty::class.java).forEach { property ->
             val name = property.name ?: return@forEach
             val initializer = property.initializer ?: return@forEach
@@ -196,6 +203,16 @@ class BoundaryConditionExtractor {
                         add(parameter, "x" + literal)
                     }
                 }
+            }
+        }
+
+        body.collectAll(KtDotQualifiedExpression::class.java).forEach { qualified ->
+            val call = qualified.selectorExpression as? KtCallExpression ?: return@forEach
+            val samples = CHAR_PREDICATE_SAMPLES[call.calleeExpression?.text] ?: return@forEach
+            val owners = dependencies(qualified.receiverExpression, parameterTypes.keys, locals)
+                .ifEmpty { parameterTypes.filterValues { it == "String" }.keys }
+            owners.filter { parameterTypes[it] == "String" }.forEach { parameter ->
+                samples.forEach { add(parameter, it) }
             }
         }
 
@@ -290,6 +307,15 @@ class BoundaryConditionExtractor {
     }
 
     companion object {
+        private val CHAR_PREDICATE_SAMPLES: Map<String, List<String>> = mapOf(
+            "isDigit" to listOf("1", "a1", "a"),
+            "isLetter" to listOf("a", "1a", "1"),
+            "isLetterOrDigit" to listOf("a", "1", "-"),
+            "isUpperCase" to listOf("A", "aA", "a"),
+            "isLowerCase" to listOf("a", "Aa", "A"),
+            "isWhitespace" to listOf(" ", "a b", "a")
+        )
+
         private val COMPARISONS: Set<IElementType> = setOf(
             KtTokens.LT,
             KtTokens.LTEQ,

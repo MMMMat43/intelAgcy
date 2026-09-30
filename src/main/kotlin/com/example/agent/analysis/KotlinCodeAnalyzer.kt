@@ -37,8 +37,11 @@ data class AnalyzedFunction(
 data class AnalysisResult(
     val structure: CodeStructure,
     val functions: List<AnalyzedFunction>,
-    val parsedSources: List<ParsedSource>
+    val parsedSources: List<ParsedSource>,
+    val warnings: List<String> = emptyList()
 )
+
+const val BYTE_ORDER_MARK = '\uFEFF'
 
 private data class Owner(val className: String, val kind: String, val skipReason: String?)
 
@@ -52,9 +55,14 @@ class KotlinCodeAnalyzer {
         analyzeDetailed(sourcePath, files).structure
 
     fun analyzeDetailed(sourcePath: String, files: List<KotlinSourceFile>): AnalysisResult {
-        val parsed = files.mapNotNull { file ->
+        val warnings = mutableListOf<String>()
+        val parsed = files.map { it.copy(content = it.content.trimStart(BYTE_ORDER_MARK)) }.mapNotNull { file ->
             val ktFile = KotlinPsi.parse(file.fileName, file.content)
-            if (ktFile.collectAll(PsiErrorElement::class.java).isNotEmpty()) {
+            val errors = ktFile.collectAll(PsiErrorElement::class.java)
+            if (errors.isNotEmpty()) {
+                val first = errors.first()
+                val line = lineOf(ktFile.text, first.textRange.startOffset)
+                warnings += "Файл ${file.fileName} не разобран: синтаксическая ошибка в строке $line (${first.errorDescription})"
                 null
             } else {
                 ParsedSource(file, ktFile)
@@ -73,7 +81,7 @@ class KotlinCodeAnalyzer {
             functions = functions.map { it.info },
             packageName = packageName
         )
-        return AnalysisResult(structure, functions, parsed)
+        return AnalysisResult(structure, functions, parsed, warnings)
     }
 
     private fun collect(source: ParsedSource): List<AnalyzedFunction> {

@@ -47,5 +47,5 @@ class LocalFileSourceLoader : SourceLoader {
     private fun isKotlinFile(file: File): Boolean = file.extension == "kt"
 
     private fun toSourceFile(file: File): KotlinSourceFile =
-        KotlinSourceFile(path = file.path, content = file.readText())
+        KotlinSourceFile(path = file.path, content = file.readText().trimStart('\uFEFF'))
 }

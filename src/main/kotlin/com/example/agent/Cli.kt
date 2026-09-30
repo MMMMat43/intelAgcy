@@ -27,10 +27,10 @@ fun main(args: Array<String>) {
         if (hasGenerateTestsFlag(args)) {
             val result = pipeline.generateTests(source, outputDir)
             println(jsonMapper.writeValueAsString(result.testSuiteResult))
-            result.coverage?.let { coverage ->
+            result.coverage?.takeIf { it.branchCoverage != null }?.let { coverage ->
                 println(
                     "Branch coverage: ${coverage.coveredBranches}/${coverage.totalBranches} " +
-                        "(${"%.1f".format(coverage.branchCoverage * 100)}%)"
+                        "(${"%.1f".format((coverage.branchCoverage ?: 0.0) * 100)}%)"
                 )
                 coverage.functions.forEach { function ->
                     println(

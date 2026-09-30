@@ -76,7 +76,7 @@ class PipelineService(
                 .filter { !it.isTestable() }
                 .map { "${it.className}.${it.name}: ${it.skipReason}" },
             executedTestCases = outcomes.values.count { it !is ExecutionOutcome.CouldNotExecute },
-            warnings = generation.warnings,
+            warnings = analysis.warnings + generation.warnings,
             coverage = generation.report
         )
     }

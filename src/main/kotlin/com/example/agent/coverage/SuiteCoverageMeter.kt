@@ -50,7 +50,7 @@ class SuiteCoverageMeter {
             }
             val total = reports.sumOf { it.totalBranches }
             val covered = reports.sumOf { it.coveredBranches }
-            CoverageReport(true, total, covered, ratio(covered, total), reports)
+            if (total == 0) emptyCoverageReport() else CoverageReport(true, total, covered, ratio(covered, total), reports)
         }
     }
 

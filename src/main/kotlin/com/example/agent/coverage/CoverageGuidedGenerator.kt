@@ -34,6 +34,8 @@ data class CoverageGeneratorConfig(
 
 private enum class Origin { HEURISTIC, BOUNDARY, SEARCH, LLM }
 
+private val STRING_ALPHABET = listOf("0", "7", "A", "z", " ", "-", "_", ".")
+
 private class Execution(
     val vector: Map<String, String?>,
     val outcome: ExecutionOutcome,
@@ -60,6 +62,15 @@ class CoverageGuidedGenerator(
     private val counter = AtomicInteger(0)
 
     fun generate(analysis: AnalysisResult): CoverageGenerationResult {
+        if (analysis.functions.none { it.info.isTestable() }) {
+            return CoverageGenerationResult(
+                measured = false,
+                suite = TestSuiteResult(analysis.structure.sourcePath, emptyList()),
+                outcomes = emptyMap(),
+                report = emptyCoverageReport(),
+                warnings = listOf(NO_BRANCHES_WARNING)
+            )
+        }
         return when (val creation = InstrumentedRunner.create(analysis)) {
             is RunnerCreation.Unavailable -> fallback(analysis, creation.reason)
             is RunnerCreation.Ready -> creation.runner.use { generateMeasured(analysis, it) }
@@ -85,11 +96,14 @@ class CoverageGuidedGenerator(
         val processed = TestCasePostProcessor().deduplicateAndNormalize(cases)
         val keptIds = processed.map { it.id }.toSet()
 
+        val hasBranches = total > 0
+        if (!hasBranches) warnings += NO_BRANCHES_WARNING
+
         return CoverageGenerationResult(
-            measured = true,
+            measured = hasBranches,
             suite = TestSuiteResult(analysis.structure.sourcePath, processed),
             outcomes = outcomes.filterKeys { it in keptIds },
-            report = CoverageReport(true, total, covered, ratio(covered, total), reports),
+            report = if (hasBranches) CoverageReport(true, total, covered, ratio(covered, total), reports) else emptyCoverageReport(),
             warnings = warnings
         )
     }
@@ -471,10 +485,11 @@ class CoverageGuidedGenerator(
             type == "Char" -> listOf("a", " ", "0", "Z")[random.nextInt(4)]
             type == "String" -> {
                 val hinted = hints.values[parameter.name].orEmpty().filterNotNull()
-                when (random.nextInt(4)) {
+                when (random.nextInt(5)) {
                     0 -> if (hinted.isNotEmpty()) hinted[random.nextInt(hinted.size)] else "a"
                     1 -> (current ?: "") + "a"
                     2 -> (current ?: "").dropLast(1)
+                    3 -> (current ?: "") + STRING_ALPHABET[random.nextInt(STRING_ALPHABET.size)]
                     else -> ""
                 }
             }

@@ -40,7 +40,7 @@ class CoverageGuidedGeneratorTest {
 
         val report = assertNotNull(result.report)
         assertTrue(result.measured)
-        assertEquals(1.0, report.branchCoverage, 0.0001, report.functions.toString())
+        assertEquals(1.0, assertNotNull(report.branchCoverage), 0.0001, report.functions.toString())
         val divide = report.functions.first { it.functionName == "divide" }
         assertTrue(divide.covered.any { it.label.contains("denominator == 0") })
         assertTrue(divide.covered.any { it.label.startsWith("for") })
@@ -55,13 +55,13 @@ class CoverageGuidedGeneratorTest {
         val after = assertNotNull(result.report)
 
         println("OrderProcessor branch coverage: heuristics=${before.coveredBranches}/${before.totalBranches} " +
-            "(${"%.1f".format(before.branchCoverage * 100)}%), guided=${after.coveredBranches}/${after.totalBranches} " +
-            "(${"%.1f".format(after.branchCoverage * 100)}%)")
+            "(${"%.1f".format(assertNotNull(before.branchCoverage) * 100)}%), guided=${after.coveredBranches}/${after.totalBranches} " +
+            "(${"%.1f".format(assertNotNull(after.branchCoverage) * 100)}%)")
         after.functions.forEach { println("  ${it.functionName}: ${it.coveredBranches}/${it.totalBranches} missing=${it.notFoundWithinBudget.map { b -> b.label }}") }
 
         assertEquals(before.totalBranches, after.totalBranches)
-        assertTrue(after.branchCoverage > before.branchCoverage, "before=${before.branchCoverage} after=${after.branchCoverage}")
-        assertTrue(after.branchCoverage >= 0.95, after.functions.filter { it.notFoundWithinBudget.isNotEmpty() }.toString())
+        assertTrue(assertNotNull(after.branchCoverage) > assertNotNull(before.branchCoverage), "before=${before.branchCoverage} after=${after.branchCoverage}")
+        assertTrue(assertNotNull(after.branchCoverage) >= 0.95, after.functions.filter { it.notFoundWithinBudget.isNotEmpty() }.toString())
     }
 
     @Test
@@ -134,7 +134,7 @@ class CoverageGuidedGeneratorTest {
         ).generate(analysis)
 
         val report = assertNotNull(result.report)
-        assertEquals(1.0, report.branchCoverage, 0.0001)
+        assertEquals(1.0, assertNotNull(report.branchCoverage), 0.0001)
         assertEquals(1, client.calls)
         val llmCases = assertNotNull(result.suite).testCases.filter { it.id.contains("-llm-") }
         assertEquals(1, llmCases.size)
