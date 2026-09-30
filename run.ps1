@@ -22,7 +22,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'up', 'down', 'help')]
+    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'up', 'down', 'uml', 'help')]
     [string]$Action = 'help',
 
     [string]$Source,
@@ -249,6 +249,17 @@ switch ($Action) {
     'down' {
         docker compose down
     }
+    'uml' {
+        $umlRoot = Join-Path $ProjectRoot 'labs-agent-materials\lab10-uml'
+        $umlOut = Join-Path $umlRoot 'out'
+        $umlTools = Join-Path $umlRoot 'tools'
+        & py (Join-Path $umlTools 'kt2puml.py') --src (Join-Path $ProjectRoot 'src\main\kotlin\com\example\agent') --config (Join-Path $umlTools 'diagrams.json') --patterns (Join-Path $umlTools 'patterns.json') --out $umlOut
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        foreach ($umlFormat in @('-tpng', '-tsvg')) {
+            & (Join-Path $env:JAVA_HOME 'bin\java.exe') -DPLANTUML_LIMIT_SIZE=16384 -jar (Join-Path $umlTools 'bin\plantuml.jar') $umlFormat -charset UTF-8 (Join-Path $umlOut '*.puml')
+        }
+        Write-Host "Diagrams saved to: $umlOut" -ForegroundColor Green
+    }
     default {
         Write-Host ""
         Write-Host "IntelligentTestAgent - quick start" -ForegroundColor Cyan
@@ -267,6 +278,7 @@ switch ($Action) {
         Write-Host "  .\run.ps1 up                                       - ONE COMMAND: build + start agent + n8n in Docker"
         Write-Host "                                                       (requires Docker Desktop)"
         Write-Host "  .\run.ps1 down                                     - stop the whole Docker stack"
+        Write-Host "  .\run.ps1 uml                                      - regenerate class diagrams from the source code"
         Write-Host ""
         Write-Host "Recommended for a full demo: .\run.ps1 up" -ForegroundColor Cyan
         Write-Host ""

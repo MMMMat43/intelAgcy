@@ -150,6 +150,11 @@ def parse_params(text):
         if not raw:
             continue
         raw = re.sub(r"^(?:(?:vararg|noinline|crossinline)\s+)+", "", raw)
+        vis = "+"
+        vm = re.match(r"(private|protected|internal|public)\s+", raw)
+        if vm:
+            vis = VISIBILITY[vm.group(1)]
+            raw = raw[vm.end():]
         m = re.match(r"(?:(val|var)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$", raw)
         if not m:
             continue
@@ -164,7 +169,7 @@ def parse_params(text):
             elif ch == "=" and depth == 0:
                 cut = idx
                 break
-        params.append((m.group(1), m.group(2), squash(type_part[:cut])))
+        params.append((m.group(1), m.group(2), squash(type_part[:cut]), vis))
     return params
 
 
@@ -259,9 +264,9 @@ def parse_file(path, src_root):
                 ident = re.match(r"\s*([A-Za-z_][\w.]*)", part)
                 if ident:
                     decl.supers.append(ident.group(1).split(".")[-1])
-            for val_kw, pname, ptype in parse_params(ctor):
+            for val_kw, pname, ptype, pvis in parse_params(ctor):
                 if val_kw:
-                    decl.ctor_props.append(Member("property", pname, ptype, "+"))
+                    decl.ctor_props.append(Member("property", pname, ptype, pvis))
             decls.append(decl)
             if body_open != -1:
                 body_close = match_bracket(text, body_open, "{", "}")
@@ -420,6 +425,8 @@ def render_group(group, model, patterns, stereo_colors, known_in_group_only=True
              "skinparam shadowing false", "skinparam defaultFontName Arial", "skinparam linetype ortho",
              "skinparam ranksep 40", "skinparam nodesep 30", "hide empty members",
              f'title {group["title"]}']
+    if group.get("direction"):
+        lines.append(group["direction"])
     max_members = group.get("max_members", 7)
     for d in selected:
         pats = patterns.get(d.name, [])
@@ -447,7 +454,7 @@ def render_group(group, model, patterns, stereo_colors, known_in_group_only=True
         if d.kind == "enum":
             body += list(d.enum_entries)
         else:
-            props = [m for m in d.ctor_props if True]
+            props = [m for m in d.ctor_props if m.visibility in ("+", "~")]
             for m in props[:max_members]:
                 body.append(member_line(m, all_names))
             remaining = max_members - min(len(props), max_members)
@@ -534,7 +541,7 @@ def render_group(group, model, patterns, stereo_colors, known_in_group_only=True
         lines.append("  Шаблоны проектирования")
         for st, col in used.items():
             lines.append(f"  <back:{col}>      </back> <<{st}>>")
-        lines.append("  Серый цвет: класс из другой группы")
+        lines.append("  Серый цвет: класс без шаблона проектирования")
         lines.append("endlegend")
     lines.append("@enduml")
     return "\n".join(lines) + "\n"
