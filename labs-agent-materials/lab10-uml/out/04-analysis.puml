@@ -1,0 +1,83 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 4. Анализ кода и модель данных (Singleton)
+class KotlinCodeAnalyzer {
+  +analyze(sourcePath: String, files: List<KotlinSourceFile>): CodeStructure
+  +analyzeDetailed(sourcePath: String, files: List<KotlinSourceFile>): AnalysisResult
+}
+class KotlinPsi <<object>> <<Singleton>> #F8CBAD {
+  +parse(fileName: String, content: String): KtFile
+}
+class AnalysisResult <<data>> {
+  +structure: CodeStructure
+  +functions: List<AnalyzedFunction>
+  +parsedSources: List<ParsedSource>
+  +warnings: List<String>
+}
+class AnalyzedFunction <<data>> {
+  +info: FunctionInfo
+  +psi: KtNamedFunction
+  +source: ParsedSource
+}
+class ParsedSource <<data>> {
+  +file: KotlinSourceFile
+  +ktFile: KtFile
+}
+class CodeStructure <<data>> {
+  +sourcePath: String
+  +language: String
+  +functions: List<FunctionInfo>
+  +packageName: String
+}
+class FunctionInfo <<data>> {
+  +name: String
+  +className: String
+  +parameters: List<ParameterInfo>
+  +returnType: String
+  +branches: List<BranchInfo>
+  +loops: List<LoopInfo>
+  +exceptions: List<ExceptionInfo>
+}
+class ParameterInfo <<data>> {
+  +name: String
+  +type: String
+  +nullable: Boolean
+  +hasDefault: Boolean
+}
+class TestCase <<data>> {
+  +id: String
+  +functionName: String
+  +className: String
+  +type: ScenarioType
+  +description: String
+  +inputData: Map<String, String?>
+  +expectedResult: String?
+}
+class TestSuiteResult <<data>> {
+  +sourcePath: String
+  +testCases: List<TestCase>
+}
+KotlinCodeAnalyzer ..> CodeStructure
+KotlinCodeAnalyzer ..> AnalysisResult
+AnalysisResult --> CodeStructure : structure
+AnalysisResult --> "*" AnalyzedFunction : functions
+AnalysisResult --> "*" ParsedSource : parsedSources
+AnalyzedFunction --> FunctionInfo : info
+AnalyzedFunction --> ParsedSource : source
+CodeStructure --> "*" FunctionInfo : functions
+FunctionInfo --> "*" ParameterInfo : parameters
+TestSuiteResult --> "*" TestCase : testCases
+legend right
+  Шаблоны проектирования
+  <back:#F8CBAD>      </back> <<Singleton>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

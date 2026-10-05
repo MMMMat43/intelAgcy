@@ -1,0 +1,42 @@
+@startuml use-cases
+' Диаграмма вариантов использования приложения «Журнал запусков генерации тестов»
+!pragma layout smetana
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam usecase {
+  BackgroundColor #EAF1FB
+  BorderColor #2F5597
+}
+skinparam actor {
+  BorderColor #2F5597
+}
+left to right direction
+
+actor "Разработчик /\nтестировщик" as User
+actor "Агент генерации тестов\n(запись истории --history)" as Agent
+
+rectangle "Журнал запусков генерации тестов" {
+  usecase "Просмотреть список запусков" as UC1
+  usecase "Отфильтровать запуски\n(проект, диапазон покрытия,\nнепокрытые ветви)" as UC2
+  usecase "Открыть детали запуска" as UC3
+  usecase "Просмотреть функции\nи их сложность" as UC4
+  usecase "Просмотреть ветви\nи их покрытие" as UC5
+  usecase "Просмотреть тест-кейсы\n(вход, ожидаемый результат)" as UC6
+  usecase "Увидеть сводку\nпо выборке" as UC7
+  usecase "Добавить заметку\nк запуску" as UC8
+  usecase "Удалить запуск\n(с подтверждением)" as UC9
+  usecase "Сохранить запуск\nв историю" as UC10
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC7
+User --> UC8
+User --> UC9
+UC3 ..> UC4 : <<include>>
+UC3 ..> UC5 : <<include>>
+UC3 ..> UC6 : <<include>>
+UC2 ..> UC1 : <<extend>>
+Agent --> UC10
+@enduml

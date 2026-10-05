@@ -11,32 +11,146 @@
     "ConcreteRepository": "#F1EEF6",
     "Bridge": "#D9E1F2",
     "Singleton": "#F8CBAD",
-    "SealedResult": "#D0CECE"
+    "SealedResult": "#D0CECE",
+    "Adapter": "#E2EFDA",
+    "Model": "#EDEDED"
   },
   "patterns": [
-    {"class": "PipelineService", "stereotype": "Facade"},
-    {"class": "PipelineService", "stereotype": "Subject"},
-    {"class": "SourceLoader", "stereotype": "Strategy"},
-    {"class": "LocalFileSourceLoader", "stereotype": "ConcreteStrategy"},
-    {"class": "GitSourceLoader", "stereotype": "ConcreteStrategy"},
-    {"class": "SourceLoaderFactory", "stereotype": "FactoryMethod"},
-    {"class": "PipelineListener", "stereotype": "Observer"},
-    {"class": "ConsoleProgressListener", "stereotype": "ConcreteObserver"},
-    {"class": "RunRecordingListener", "stereotype": "ConcreteObserver"},
-    {"class": "RunRepository", "stereotype": "Repository"},
-    {"class": "InMemoryRunRepository", "stereotype": "ConcreteRepository"},
-    {"class": "ArtifactStore", "stereotype": "Bridge"},
-    {"class": "ArtifactStorage", "stereotype": "Bridge"},
-    {"class": "CandidateStrategy", "stereotype": "Strategy"},
-    {"class": "BoundaryVariationStrategy", "stereotype": "ConcreteStrategy"},
-    {"class": "HeuristicCandidateStrategy", "stereotype": "ConcreteStrategy"},
-    {"class": "CombinationStrategy", "stereotype": "ConcreteStrategy"},
-    {"class": "MutationStrategy", "stereotype": "Strategy"},
-    {"class": "NeighbourhoodMutationStrategy", "stereotype": "ConcreteStrategy"},
-    {"class": "TypeConversion", "stereotype": "Singleton"},
-    {"class": "KotlinPsi", "stereotype": "Singleton"},
-    {"class": "CompilationResult", "stereotype": "SealedResult"},
-    {"class": "ExecutionOutcome", "stereotype": "SealedResult"},
-    {"class": "ConversionResult", "stereotype": "SealedResult"}
+    {
+      "class": "PipelineService",
+      "stereotype": "Facade"
+    },
+    {
+      "class": "PipelineService",
+      "stereotype": "Subject"
+    },
+    {
+      "class": "SourceLoader",
+      "stereotype": "Strategy"
+    },
+    {
+      "class": "LocalFileSourceLoader",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "GitSourceLoader",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "SourceLoaderFactory",
+      "stereotype": "FactoryMethod"
+    },
+    {
+      "class": "PipelineListener",
+      "stereotype": "Observer"
+    },
+    {
+      "class": "ConsoleProgressListener",
+      "stereotype": "ConcreteObserver"
+    },
+    {
+      "class": "RunRecordingListener",
+      "stereotype": "ConcreteObserver"
+    },
+    {
+      "class": "RunRepository",
+      "stereotype": "Repository"
+    },
+    {
+      "class": "InMemoryRunRepository",
+      "stereotype": "ConcreteRepository"
+    },
+    {
+      "class": "ArtifactStore",
+      "stereotype": "Bridge"
+    },
+    {
+      "class": "ArtifactStorage",
+      "stereotype": "Bridge"
+    },
+    {
+      "class": "CandidateStrategy",
+      "stereotype": "Strategy"
+    },
+    {
+      "class": "BoundaryVariationStrategy",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "HeuristicCandidateStrategy",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "CombinationStrategy",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "MutationStrategy",
+      "stereotype": "Strategy"
+    },
+    {
+      "class": "NeighbourhoodMutationStrategy",
+      "stereotype": "ConcreteStrategy"
+    },
+    {
+      "class": "TypeConversion",
+      "stereotype": "Singleton"
+    },
+    {
+      "class": "KotlinPsi",
+      "stereotype": "Singleton"
+    },
+    {
+      "class": "CompilationResult",
+      "stereotype": "SealedResult"
+    },
+    {
+      "class": "ExecutionOutcome",
+      "stereotype": "SealedResult"
+    },
+    {
+      "class": "ConversionResult",
+      "stereotype": "SealedResult"
+    },
+    {
+      "class": "HistoryService",
+      "stereotype": "Facade"
+    },
+    {
+      "class": "SqliteRunRepository",
+      "stereotype": "ConcreteRepository"
+    },
+    {
+      "class": "ListTableModel",
+      "stereotype": "Adapter"
+    },
+    {
+      "class": "RunsTableModel",
+      "stereotype": "Model"
+    },
+    {
+      "class": "FunctionsTableModel",
+      "stereotype": "Model"
+    },
+    {
+      "class": "BranchesTableModel",
+      "stereotype": "Model"
+    },
+    {
+      "class": "TestCasesTableModel",
+      "stereotype": "Model"
+    },
+    {
+      "class": "NotesTableModel",
+      "stereotype": "Model"
+    },
+    {
+      "class": "HistoryFormat",
+      "stereotype": "Singleton"
+    },
+    {
+      "class": "HistoryTheme",
+      "stereotype": "Singleton"
+    }
   ]
 }

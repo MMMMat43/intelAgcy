@@ -1,0 +1,55 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 6. Выполнение и генерация тестов (Sealed result, Singleton)
+left to right direction
+class KotlinInMemoryCompiler {
+  +compile(units: List<SourceUnit>): CompilationResult
+}
+abstract class CompilationResult <<sealed>> <<SealedResult>> #D0CECE {
+  +classLoader: URLClassLoader, val tempDir: Path) : Compil...
+  +tempDir: Path) : CompilationResult()
+  +diagnostics: List<String>) : CompilationResult()
+}
+class TestCaseExecutor {
+  +execute(classLoader: ClassLoader, function: FunctionInfo, testCase: TestCase, onWorkerStart: (() -> Unit)? = null, onTimeout: (() -> Uni...): ExecutionOutcome
+}
+abstract class ExecutionOutcome <<sealed>> <<SealedResult>> #D0CECE {
+  +value: Any?) : ExecutionOutcome()
+  +exceptionClassName: String) : ExecutionOutcome()
+  +reason: String) : ExecutionOutcome()
+}
+class TypeConversion <<object>> <<Singleton>> #F8CBAD {
+  +convert(type: String, nullable: Boolean, rawValue: String?): ConversionResult
+  +reflectionClassFor(type: String, nullable: Boolean): Class<*>?
+  +normalize(type: String): String
+}
+abstract class ConversionResult <<sealed>> <<SealedResult>> #D0CECE {
+  +value: Any?) : ConversionResult()
+  +reason: String) : ConversionResult()
+}
+class JUnit5TestCodeGenerator {
+  +generate(testSuite: TestSuiteResult, packageName: String, functions: List<FunctionInfo>, outcomes: Map<String, ExecutionOutcome>): FileSpec
+}
+KotlinInMemoryCompiler ..> CompilationResult
+TestCaseExecutor ..> ExecutionOutcome
+TypeConversion ..> ConversionResult
+JUnit5TestCodeGenerator ..> ExecutionOutcome
+note right of ExecutionOutcome
+Закрытый набор исходов:
+значение, исключение, не выполнено
+end note
+legend right
+  Шаблоны проектирования
+  <back:#D0CECE>      </back> <<SealedResult>>
+  <back:#F8CBAD>      </back> <<Singleton>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

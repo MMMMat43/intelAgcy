@@ -1,0 +1,86 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 3. Хранение результатов (Repository, Bridge)
+interface ArtifactStore <<Bridge>> #D9E1F2 {
+  +saveAnalysis(structure: CodeStructure)
+  +saveTestCases(testSuite: TestSuiteResult)
+  +saveCoverage(report: CoverageReport)
+  +saveGeneratedTestCode(fileSpec: FileSpec)
+}
+class ArtifactStorage <<Bridge>> #D9E1F2 {
+  +saveAnalysis(structure: CodeStructure)
+  +saveTestCases(testSuite: TestSuiteResult)
+  +saveCoverage(report: CoverageReport)
+  +saveGeneratedTestCode(fileSpec: FileSpec)
+  +loadAnalysis(): CodeStructure
+  +loadTestCases(): TestSuiteResult
+}
+interface RunRepository <<Repository>> #E4DFEC {
+  +save(record: RunRecord): RunRecord
+  +findById(id: String): RunRecord?
+  +findAll(): List<RunRecord>
+  +count(): Int
+  +deleteById(id: String): Boolean
+  +addNote(runId: String, text: String, createdAt: Instant): RunNote
+  +notes(runId: String): List<RunNote>
+}
+class InMemoryRunRepository <<ConcreteRepository>> #F1EEF6 {
+  +save(record: RunRecord): RunRecord
+  +findById(id: String): RunRecord?
+  +findAll(): List<RunRecord>
+  +count(): Int
+  +deleteById(id: String): Boolean
+  +addNote(runId: String, text: String, createdAt: Instant): RunNote
+  +notes(runId: String): List<RunNote>
+}
+class RunRecord <<data>> {
+  +id: String
+  +sourcePath: String
+  +startedAt: Instant
+  +durationMillis: Long
+  +status: RunStatus
+  +functionsCount: Int
+  +testCasesCount: Int
+}
+class FunctionRunRecord <<data>> {
+  +className: String
+  +functionName: String
+  +totalBranches: Int
+  +coveredBranches: Int
+  +testCases: Int
+  +signature: String
+  +complexity: Int?
+}
+enum RunStatus {
+  COMPLETED
+  FAILED
+}
+ArtifactStorage ..|> ArtifactStore
+RunRepository ..> RunRecord
+InMemoryRunRepository ..|> RunRepository
+InMemoryRunRepository ..> RunRecord
+RunRecord --> RunStatus : status
+RunRecord --> "*" FunctionRunRecord : functions
+note right of RunRepository
+Доступ к истории запусков
+через интерфейс, без привязки к хранилищу
+end note
+note right of ArtifactStore
+Конвейер знает только интерфейс
+end note
+legend right
+  Шаблоны проектирования
+  <back:#D9E1F2>      </back> <<Bridge>>
+  <back:#E4DFEC>      </back> <<Repository>>
+  <back:#F1EEF6>      </back> <<ConcreteRepository>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

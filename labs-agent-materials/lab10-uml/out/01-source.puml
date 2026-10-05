@@ -1,0 +1,50 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 1. Загрузка исходников (Strategy, Factory Method)
+interface SourceLoader <<Strategy>> #DDEBF7 {
+  +load(location: String): List<KotlinSourceFile>
+}
+class LocalFileSourceLoader <<ConcreteStrategy>> #EAF3FA {
+  +load(location: String): List<KotlinSourceFile>
+}
+class GitSourceLoader <<ConcreteStrategy>> #EAF3FA {
+  +load(location: String): List<KotlinSourceFile>
+}
+class SourceLoaderFactory <<FactoryMethod>> #FFF2CC {
+  +create(location: String): SourceLoader
+}
+class KotlinSourceFile <<data>> {
+  +path: String
+  +content: String
+  +fileName: String
+}
+SourceLoader ..> KotlinSourceFile
+LocalFileSourceLoader ..|> SourceLoader
+LocalFileSourceLoader ..> KotlinSourceFile
+GitSourceLoader ..|> SourceLoader
+GitSourceLoader --> LocalFileSourceLoader : localFileSourceLoader
+GitSourceLoader ..> KotlinSourceFile
+SourceLoaderFactory ..> SourceLoader
+note right of SourceLoaderFactory
+create(location) выбирает загрузчик:
+путь на диске или адрес репозитория
+end note
+note right of SourceLoader
+Общий интерфейс источников исходников
+end note
+legend right
+  Шаблоны проектирования
+  <back:#DDEBF7>      </back> <<Strategy>>
+  <back:#EAF3FA>      </back> <<ConcreteStrategy>>
+  <back:#FFF2CC>      </back> <<FactoryMethod>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

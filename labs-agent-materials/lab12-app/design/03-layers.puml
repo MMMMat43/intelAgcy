@@ -1,0 +1,56 @@
+@startuml layers
+' Диаграмма компонентов: слои приложения и их зависимости
+!pragma layout smetana
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam component {
+  BackgroundColor #EAF1FB
+  BorderColor #2F5597
+}
+skinparam package {
+  BorderColor #8EA3C2
+}
+
+package "Представление (com.example.agent.history.ui)" {
+  [HistoryApp\nточка входа] as App
+  [HistoryView\nглавное окно] as View
+  [Модели таблиц\nRuns / Functions /\nBranches / TestCases / Notes] as Models
+  [HistoryDialogs\nзаметка, удаление] as Dialogs
+  [HistoryScreenshots\nотрисовка в PNG] as Shots
+}
+
+package "Логика (com.example.agent.history)" {
+  [HistoryService\nфильтры, детали,\nсводка, заметки] as Service
+  [RunFilter, RunSummaryRow,\nRunDetails, HistoryStatistics] as Dto
+}
+
+package "Доступ к данным (com.example.agent.storage)" {
+  interface "RunRepository" as Repo
+  [SqliteRunRepository] as Sqlite
+  [InMemoryRunRepository\n(тесты)] as Mem
+}
+
+database "agent_history.db\n(SQLite, схема ЛР 11)" as DB
+
+package "Агент (com.example.agent.api)" {
+  [RunRecordingListener\nзапись истории] as Recorder
+}
+
+App --> View
+App --> Shots
+View --> Models
+View --> Dialogs
+View --> Service
+Shots --> View
+Service --> Dto
+Service --> Repo
+Sqlite ..|> Repo
+Mem ..|> Repo
+Sqlite --> DB
+Recorder --> Repo
+note right of Service
+  Не зависит от Swing:
+  проверяется модульными тестами
+  на временной базе SQLite
+end note
+@enduml

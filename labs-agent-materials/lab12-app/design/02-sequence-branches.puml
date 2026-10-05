@@ -1,0 +1,46 @@
+@startuml sequence-branches
+' Диаграмма последовательности: пользователь выбирает запуск и открывает вкладку «Ветви»
+!pragma layout smetana
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam sequence {
+  ParticipantBorderColor #2F5597
+  ParticipantBackgroundColor #EAF1FB
+  LifeLineBorderColor #2F5597
+  ArrowColor #2F5597
+}
+
+actor "Пользователь" as U
+participant "HistoryView\n(Swing)" as V
+participant "BranchesTableModel" as M
+participant "HistoryService" as S
+participant "RunRepository\n(SqliteRunRepository)" as R
+database "agent_history.db\n(SQLite)" as DB
+
+U -> V : выбирает строку запуска
+activate V
+V -> S : details(runId)
+activate S
+S -> R : findById(runId)
+activate R
+R -> DB : SELECT run, function_info,\nbranch, test_case, test_input
+DB --> R : строки результата
+R --> S : RunRecord
+deactivate R
+S -> S : свести функции, ветви,\nтест-кейсы в RunDetails
+S --> V : RunDetails
+deactivate S
+V -> M : update(details.branches)
+activate M
+M --> V : fireTableDataChanged()
+deactivate M
+V -> S : notes(runId)
+S -> R : notes(runId)
+R -> DB : SELECT ... FROM note
+DB --> R : заметки
+R --> S : List<RunNote>
+S --> V : заметки
+U -> V : открывает вкладку «Ветви»
+V --> U : таблица ветвей с подсветкой\nпокрытых и непокрытых
+deactivate V
+@enduml

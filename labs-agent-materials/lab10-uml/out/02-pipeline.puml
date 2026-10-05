@@ -1,0 +1,118 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 2. Конвейер и наблюдатели (Facade, Observer)
+class PipelineService <<Facade>> <<Subject>> #FCE4D6 {
+  +functionsCount: Int,
+  +testCasesCount: Int,
+  +generatedTestFilePath: String?,
+  +testSuiteResult: TestSuiteResult,
+  +skippedFunctions: List<String>
+  +executedTestCases: Int
+  +warnings: List<String>
+  +analyze(sourcePath: String): CodeStructure
+  +generateTests(sourcePath: String, outputDir: String?): GenerateTestsResult
+}
+interface PipelineListener <<Observer>> #E2F0D9 {
+  +onAnalysisCompleted(event: AnalysisCompleted)
+  +onFunctionProcessed(event: FunctionProcessed)
+  +onSuiteGenerated(event: SuiteGenerated)
+  +onArtifactsSaved(event: ArtifactsSaved)
+  +onCompleted(event: PipelineCompleted)
+  +onFailed(event: PipelineFailed)
+}
+class ConsoleProgressListener <<ConcreteObserver>> #F0F8EA {
+  +onAnalysisCompleted(event: AnalysisCompleted)
+  +onFunctionProcessed(event: FunctionProcessed)
+  +onSuiteGenerated(event: SuiteGenerated)
+  +onArtifactsSaved(event: ArtifactsSaved)
+  +onCompleted(event: PipelineCompleted)
+  +onFailed(event: PipelineFailed)
+}
+class RunRecordingListener <<ConcreteObserver>> #F0F8EA {
+  +onAnalysisCompleted(event: AnalysisCompleted)
+  +onFunctionProcessed(event: FunctionProcessed)
+  +onCompleted(event: PipelineCompleted)
+  +onFailed(event: PipelineFailed)
+}
+class AnalysisCompleted <<data>> {
+  +sourcePath: String
+  +functionsCount: Int
+  +testableFunctions: Int
+  +warnings: List<String>
+}
+class FunctionProcessed <<data>> {
+  +sourcePath: String
+  +coverage: FunctionCoverage
+  +generatedCases: Int
+}
+class SuiteGenerated <<data>> {
+  +sourcePath: String
+  +testCasesCount: Int
+  +executedTestCases: Int
+  +coveredBranches: Int
+  +totalBranches: Int
+  +coverageMeasured: Boolean
+}
+class ArtifactsSaved <<data>> {
+  +sourcePath: String
+  +outputDir: String
+}
+class PipelineCompleted <<data>> {
+  +sourcePath: String
+  +startedAt: Instant
+  +durationMillis: Long
+  +functionsCount: Int
+  +testCasesCount: Int
+  +executedTestCases: Int
+  +coveredBranches: Int
+}
+class PipelineFailed <<data>> {
+  +sourcePath: String
+  +startedAt: Instant
+  +durationMillis: Long
+  +message: String
+}
+PipelineService --> "*" PipelineListener : listeners
+PipelineListener ..> AnalysisCompleted
+PipelineListener ..> FunctionProcessed
+PipelineListener ..> SuiteGenerated
+PipelineListener ..> ArtifactsSaved
+PipelineListener ..> PipelineCompleted
+PipelineListener ..> PipelineFailed
+ConsoleProgressListener ..|> PipelineListener
+ConsoleProgressListener ..> AnalysisCompleted
+ConsoleProgressListener ..> FunctionProcessed
+ConsoleProgressListener ..> SuiteGenerated
+ConsoleProgressListener ..> ArtifactsSaved
+ConsoleProgressListener ..> PipelineCompleted
+ConsoleProgressListener ..> PipelineFailed
+RunRecordingListener ..|> PipelineListener
+RunRecordingListener ..> AnalysisCompleted
+RunRecordingListener ..> FunctionProcessed
+RunRecordingListener ..> PipelineCompleted
+RunRecordingListener ..> PipelineFailed
+note right of PipelineService
+Единая точка входа: скрывает порядок этапов.
+Рассылает события подписчикам,
+сбой подписчика не прерывает работу
+end note
+note right of PipelineListener
+Подписчик реализует только нужные события
+end note
+legend right
+  Шаблоны проектирования
+  <back:#FCE4D6>      </back> <<Facade>>
+  <back:#E2F0D9>      </back> <<Subject>>
+  <back:#E2F0D9>      </back> <<Observer>>
+  <back:#F0F8EA>      </back> <<ConcreteObserver>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

@@ -1,0 +1,39 @@
+{
+  "files_parsed": 42,
+  "classes_found": 132,
+  "diagrams": [
+    "00-packages.puml",
+    "01-source.puml",
+    "02-pipeline.puml",
+    "03-storage.puml",
+    "04-analysis.puml",
+    "05-coverage.puml",
+    "06-execution.puml",
+    "07-history-app.puml"
+  ],
+  "package_edges": {
+    "com.example.agent.analysis->com.example.agent.model": 7,
+    "com.example.agent.analysis->com.example.agent.source": 1,
+    "com.example.agent.api->com.example.agent.coverage": 7,
+    "com.example.agent.api->com.example.agent.model": 6,
+    "com.example.agent.api->com.example.agent.analysis": 1,
+    "com.example.agent.api->com.example.agent.codegen": 1,
+    "com.example.agent.api->com.example.agent.execution": 1,
+    "com.example.agent.api->com.example.agent.source": 1,
+    "com.example.agent.api->com.example.agent.storage": 9,
+    "com.example.agent.codegen->com.example.agent.execution": 2,
+    "com.example.agent.codegen->com.example.agent.model": 6,
+    "com.example.agent.coverage->com.example.agent.analysis": 10,
+    "com.example.agent.coverage->com.example.agent.execution": 23,
+    "com.example.agent.coverage->com.example.agent.model": 24,
+    "com.example.agent.coverage->com.example.agent.generation": 3,
+    "com.example.agent.execution->com.example.agent.model": 3,
+    "com.example.agent.generation->com.example.agent.execution": 1,
+    "com.example.agent.generation->com.example.agent.model": 9,
+    "com.example.agent.history->com.example.agent.storage": 6,
+    "com.example.agent.history.ui->com.example.agent.history": 13,
+    "com.example.agent.history.ui->com.example.agent.storage": 4,
+    "com.example.agent.storage->com.example.agent.coverage": 2,
+    "com.example.agent.storage->com.example.agent.model": 4
+  }
+}

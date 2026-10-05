@@ -1,0 +1,103 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 5. Ядро подбора тестов по покрытию (Strategy)
+left to right direction
+class CoverageGuidedGenerator {
+  +generate(analysis: AnalysisResult): CoverageGenerationResult
+}
+interface CandidateStrategy <<Strategy>> #DDEBF7 {
+  +fill(context: CandidateContext, pool: CandidatePool)
+}
+class BoundaryVariationStrategy <<ConcreteStrategy>> #EAF3FA {
+  +fill(context: CandidateContext, pool: CandidatePool)
+}
+class HeuristicCandidateStrategy <<ConcreteStrategy>> #EAF3FA {
+  +fill(context: CandidateContext, pool: CandidatePool)
+}
+class CombinationStrategy <<ConcreteStrategy>> #EAF3FA {
+  +fill(context: CandidateContext, pool: CandidatePool)
+}
+interface MutationStrategy <<Strategy>> #DDEBF7 {
+  +mutate(context: CandidateContext, parent: Map<String, String?>): Map<String, String?>
+}
+class NeighbourhoodMutationStrategy <<ConcreteStrategy>> #EAF3FA {
+  +mutate(context: CandidateContext, parent: Map<String, String?>): Map<String, String?>
+}
+class CandidatePool {
+  +size: Int get()
+  +add(vector: Map<String, String?>, origin: CandidateOrigin): Boolean
+  +ordered(): List<Pair<Map<String, String?>, CandidateOr...
+}
+class CandidateContext {
+  +info: FunctionInfo
+  +hints: BoundaryHints
+  +config: CoverageGeneratorConfig
+  +random: Random
+}
+class BoundaryConditionExtractor {
+  +extract(analyzed: AnalyzedFunction): BoundaryHints
+}
+class BranchInstrumenter {
+  +instrument(analysis: AnalysisResult): InstrumentedProgram
+}
+class InstrumentedRunner {
+  +probes: List<BranchProbe>
+  +run(function: FunctionInfo, testCase: TestCase): RunResult
+  +close()
+}
+class CoverageReport <<data>> {
+  +measured: Boolean
+  +totalBranches: Int
+  +coveredBranches: Int
+  +branchCoverage: Double?
+  +functions: List<FunctionCoverage>
+}
+class FunctionCoverage <<data>> {
+  +functionKey: String
+  +className: String
+  +functionName: String
+  +totalBranches: Int
+  +coveredBranches: Int
+}
+CoverageGuidedGenerator --> BoundaryConditionExtractor : extractor
+CoverageGuidedGenerator --> MutationStrategy : mutationStrategy
+CoverageGuidedGenerator --> FunctionCoverage : onFunctionGenerated
+CoverageGuidedGenerator --> "*" CandidateStrategy : strategies
+CandidateStrategy ..> CandidateContext
+CandidateStrategy ..> CandidatePool
+BoundaryVariationStrategy ..|> CandidateStrategy
+BoundaryVariationStrategy ..> CandidateContext
+BoundaryVariationStrategy ..> CandidatePool
+HeuristicCandidateStrategy ..|> CandidateStrategy
+HeuristicCandidateStrategy ..> CandidateContext
+HeuristicCandidateStrategy ..> CandidatePool
+CombinationStrategy ..|> CandidateStrategy
+CombinationStrategy ..> CandidateContext
+CombinationStrategy ..> CandidatePool
+MutationStrategy ..> CandidateContext
+NeighbourhoodMutationStrategy ..|> MutationStrategy
+NeighbourhoodMutationStrategy ..> CandidateContext
+CoverageReport --> "*" FunctionCoverage : functions
+note right of CandidateStrategy
+Источники входных значений
+задаются списком в конструкторе генератора
+end note
+note right of MutationStrategy
+Способ поиска значений
+для непокрытых ветвей
+end note
+legend right
+  Шаблоны проектирования
+  <back:#DDEBF7>      </back> <<Strategy>>
+  <back:#EAF3FA>      </back> <<ConcreteStrategy>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml

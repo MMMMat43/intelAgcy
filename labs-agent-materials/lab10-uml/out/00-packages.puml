@@ -1,0 +1,53 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+title Зависимости между пакетами агента
+package "api" as api #DDEBF7 {
+}
+package "source" as source #DDEBF7 {
+}
+package "analysis" as analysis #DDEBF7 {
+}
+package "coverage" as coverage #DDEBF7 {
+}
+package "execution" as execution #DDEBF7 {
+}
+package "codegen" as codegen #DDEBF7 {
+}
+package "generation" as generation #DDEBF7 {
+}
+package "storage" as storage #DDEBF7 {
+}
+package "model" as model #DDEBF7 {
+}
+package "history" as history #DDEBF7 {
+}
+package "ui" as ui #DDEBF7 {
+}
+analysis ..> model : 7
+analysis ..> source : 1
+api ..> coverage : 7
+api ..> model : 6
+api ..> analysis : 1
+api ..> codegen : 1
+api ..> execution : 1
+api ..> source : 1
+api ..> storage : 9
+codegen ..> execution : 2
+codegen ..> model : 6
+coverage ..> analysis : 10
+coverage ..> execution : 23
+coverage ..> model : 24
+coverage ..> generation : 3
+execution ..> model : 3
+generation ..> execution : 1
+generation ..> model : 9
+history ..> storage : 6
+ui ..> history : 13
+ui ..> storage : 4
+storage ..> coverage : 2
+storage ..> model : 4
+@enduml

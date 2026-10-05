@@ -1,0 +1,144 @@
+@startuml
+!pragma layout smetana
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam ranksep 40
+skinparam nodesep 30
+hide empty members
+title Диаграмма 7. Приложение «Журнал запусков генерации тестов» (Facade, Adapter, Repository, Singleton)
+top to bottom direction
+class HistoryView {
+  +noteRequester: (RunSummaryRow) -> String?
+  +deleteConfirmer: (RunSummaryRow) -> Boolean
+  +errorReporter: (String) -> Unit
+  +runsModel: RunsTableModel
+  +functionsModel: FunctionsTableModel
+  +branchesModel: BranchesTableModel
+  +casesModel: TestCasesTableModel
+  +reload()
+  +applyFilter(filter: RunFilter, keepRunId: String?)
+  +resetFilter()
+  +selectRun(index: Int)
+  +selectTab(index: Int)
+  +selectedRun(): RunSummaryRow?
+  +addNote(text: String): Boolean
+}
+class HistoryService <<Facade>> #FCE4D6 {
+  +projects(): List<String>
+  +runs(filter: RunFilter): List<RunSummaryRow>
+  +details(runId: String): RunDetails?
+  +statistics(filter: RunFilter, topComplex: Int): HistoryStatistics
+  +notes(runId: String): List<RunNote>
+  +addNote(runId: String, text: String): RunNote
+  +deleteRun(runId: String): Boolean
+}
+class RunFilter <<data>> {
+  +project: String?
+  +minCoverage: Double?
+  +maxCoverage: Double?
+  +onlyWithUncovered: Boolean
+}
+class RunSummaryRow <<data>> {
+  +runId: String
+  +project: String
+  +startedAt: Instant
+  +status: RunStatus
+  +durationMillis: Long
+  +functions: Int
+  +testCases: Int
+}
+class RunDetails <<data>> {
+  +summary: RunSummaryRow
+  +sourcePath: String
+  +functions: List<FunctionRow>
+  +branches: List<BranchRow>
+  +testCases: List<TestCaseRow>
+}
+class HistoryStatistics <<data>> {
+  +runs: Int
+  +projects: Int
+  +averageCoverage: Double?
+  +totalTestCases: Int
+  +uncoveredBranches: Int
+  +mostComplex: List<ComplexFunction>
+}
+class ListTableModel <<Adapter>> #E2EFDA {
+  +rows: List<T>
+  +update(items: List<T>)
+  +rowAt(index: Int): T?
+  +preferredWidth(column: Int): Int
+  +getRowCount(): Int
+  +getColumnCount(): Int
+  +getColumnName(column: Int): String
+  +getValueAt(rowIndex: Int, columnIndex: Int): Any?
+}
+class RunsTableModel <<Model>> #EDEDED
+class BranchesTableModel <<Model>> #EDEDED
+class TestCasesTableModel <<Model>> #EDEDED
+interface RunRepository <<Repository>> #E4DFEC {
+  +save(record: RunRecord): RunRecord
+  +findById(id: String): RunRecord?
+  +findAll(): List<RunRecord>
+  +count(): Int
+  +deleteById(id: String): Boolean
+  +addNote(runId: String, text: String, createdAt: Instant): RunNote
+  +notes(runId: String): List<RunNote>
+}
+class SqliteRunRepository <<ConcreteRepository>> #F1EEF6 {
+  +save(record: RunRecord): RunRecord
+  +findById(id: String): RunRecord?
+  +findAll(): List<RunRecord>
+  +count(): Int
+  +deleteById(id: String): Boolean
+  +addNote(runId: String, text: String, createdAt: Instant): RunNote
+  +notes(runId: String): List<RunNote>
+}
+class HistoryFormat <<object>> <<Singleton>> #F8CBAD {
+  +zone: ZoneId
+  +date(value: Instant): String
+  +percent(value: Double?): String
+  +branches(covered: Int, total: Int): String
+  +seconds(millis: Long): String
+  +status(value: RunStatus): String
+  +branchState(value: BranchState): String
+  +scenario(value: String): String
+}
+HistoryView --> HistoryService : service
+HistoryView --> RunSummaryRow : noteRequester
+HistoryView --> RunsTableModel : runsModel
+HistoryView --> BranchesTableModel : branchesModel
+HistoryView --> TestCasesTableModel : casesModel
+HistoryView --> ListTableModel : complexModel
+HistoryView --> RunFilter : currentFilter
+HistoryService --> RunRepository : repository
+HistoryService ..> RunFilter
+HistoryService ..> RunSummaryRow
+HistoryService ..> RunDetails
+HistoryService ..> HistoryStatistics
+RunDetails --> RunSummaryRow : summary
+RunsTableModel --|> ListTableModel
+BranchesTableModel --|> ListTableModel
+TestCasesTableModel --|> ListTableModel
+SqliteRunRepository ..|> RunRepository
+note right of HistoryService
+Логика без Swing:
+фильтры, детали, сводка, заметки
+end note
+note right of ListTableModel
+Адаптирует списки строк
+к интерфейсу TableModel Swing
+end note
+legend right
+  Шаблоны проектирования
+  <back:#FCE4D6>      </back> <<Facade>>
+  <back:#E2EFDA>      </back> <<Adapter>>
+  <back:#EDEDED>      </back> <<Model>>
+  <back:#E4DFEC>      </back> <<Repository>>
+  <back:#F1EEF6>      </back> <<ConcreteRepository>>
+  <back:#F8CBAD>      </back> <<Singleton>>
+  Серый цвет: класс без шаблона проектирования
+endlegend
+@enduml
