@@ -52,6 +52,16 @@ tasks.register<JavaExec>("runServer") {
     classpath = sourceSets["main"].runtimeClasspath
 }
 
+tasks.register<JavaExec>("historyUi") {
+    group = "application"
+    description = "Runs the test generation run history viewer (Swing)"
+    mainClass.set("com.example.agent.history.ui.HistoryAppKt")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = rootDir
+    val historyArgs = providers.gradleProperty("historyArgs").orNull
+    if (!historyArgs.isNullOrBlank()) args = historyArgs.split(";;").filter { it.isNotBlank() }
+}
+
 tasks.test {
     useJUnitPlatform()
     maxHeapSize = "1g"

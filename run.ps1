@@ -22,12 +22,14 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'up', 'down', 'uml', 'help')]
+    [ValidateSet('build', 'test', 'analyze', 'generate', 'serve', 'up', 'down', 'uml', 'history-ui', 'help')]
     [string]$Action = 'help',
 
     [string]$Source,
     [string]$Output,
-    [int]$Port = 8080
+    [int]$Port = 8080,
+    [string]$Database,
+    [string]$Screenshot
 )
 
 $ErrorActionPreference = 'Stop'
@@ -260,6 +262,17 @@ switch ($Action) {
         }
         Write-Host "Diagrams saved to: $umlOut" -ForegroundColor Green
     }
+    'history-ui' {
+        $historyArgs = @()
+        if ($Database) { $historyArgs += @('--db', (Resolve-Path $Database).Path) }
+        if ($Screenshot) {
+            New-Item -ItemType Directory -Force -Path $Screenshot | Out-Null
+            $historyArgs += @('--screenshot', (Resolve-Path $Screenshot).Path)
+        }
+        $gradleArgs = @('historyUi', '--no-daemon', '-q')
+        if ($historyArgs.Count -gt 0) { $gradleArgs += "-PhistoryArgs=$($historyArgs -join ';;')" }
+        & $gradlew @gradleArgs
+    }
     default {
         Write-Host ""
         Write-Host "IntelligentTestAgent - quick start" -ForegroundColor Cyan
@@ -279,6 +292,9 @@ switch ($Action) {
         Write-Host "                                                       (requires Docker Desktop)"
         Write-Host "  .\run.ps1 down                                     - stop the whole Docker stack"
         Write-Host "  .\run.ps1 uml                                      - regenerate class diagrams from the source code"
+        Write-Host "  .\run.ps1 history-ui                               - run history viewer (copy of the lab 11 database)"
+        Write-Host "  .\run.ps1 history-ui -Database my.db               - run history viewer on your own database"
+        Write-Host "  .\run.ps1 history-ui -Screenshot folder            - render screen forms to PNG without a window"
         Write-Host ""
         Write-Host "Recommended for a full demo: .\run.ps1 up" -ForegroundColor Cyan
         Write-Host ""
