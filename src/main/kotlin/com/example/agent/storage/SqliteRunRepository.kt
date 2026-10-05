@@ -52,6 +52,47 @@ class SqliteRunRepository(private val databasePath: String) : RunRepository {
         }
     }
 
+    override fun deleteById(id: String): Boolean = synchronized(lock) {
+        connect().use { connection ->
+            connection.prepareStatement("DELETE FROM run WHERE id = ?").use {
+                it.setString(1, id)
+                it.executeUpdate() > 0
+            }
+        }
+    }
+
+    override fun addNote(runId: String, text: String, createdAt: Instant): RunNote = synchronized(lock) {
+        require(text.isNotBlank()) { "Note text must not be blank" }
+        connect().use { connection ->
+            connection.prepareStatement(
+                "INSERT INTO note (run_id, created_at, text) VALUES (?, ?, ?)",
+                java.sql.Statement.RETURN_GENERATED_KEYS
+            ).use { statement ->
+                statement.setString(1, runId)
+                statement.setString(2, createdAt.toString())
+                statement.setString(3, text)
+                statement.executeUpdate()
+                val id = statement.generatedKeys.use { keys -> keys.next(); keys.getLong(1) }
+                RunNote(id, runId, createdAt, text)
+            }
+        }
+    }
+
+    override fun notes(runId: String): List<RunNote> = synchronized(lock) {
+        connect().use { connection ->
+            connection.prepareStatement("SELECT id, run_id, created_at, text FROM note WHERE run_id = ? ORDER BY created_at, id").use {
+                it.setString(1, runId)
+                it.executeQuery().use { rows ->
+                    val result = mutableListOf<RunNote>()
+                    while (rows.next()) {
+                        result += RunNote(rows.getLong(1), rows.getString(2), Instant.parse(rows.getString(3)), rows.getString(4))
+                    }
+                    result
+                }
+            }
+        }
+    }
+
     private fun insertRun(connection: Connection, record: RunRecord) {
         val projectId = projectId(connection, projectNameOf(record), record.startedAt)
         connection.prepareStatement(

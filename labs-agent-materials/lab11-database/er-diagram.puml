@@ -39,6 +39,13 @@ entity "function_info" as function_info {
   *total_branches : INTEGER
   *covered_branches : INTEGER
 }
+entity "note" as note {
+  *id : INTEGER <<PK>>
+  --
+  *run_id : TEXT <<FK>>
+  *created_at : TEXT
+  *text : TEXT
+}
 entity "project" as project {
   *id : INTEGER <<PK>>
   --
@@ -89,6 +96,7 @@ run ||--o{ artifact : run_id
 function_info ||--o{ branch : function_id
 source_file |o--o{ function_info : source_file_id
 run ||--o{ function_info : run_id
+run ||--o{ note : run_id
 project ||--o{ run : project_id
 project ||--o{ source_file : project_id
 case_origin ||--o{ test_case : origin_id

@@ -54,6 +54,7 @@
 | `test_case` | `id` | `function_id` CASCADE, `scenario_type_id`, `origin_id` | UNIQUE (функция, код) |
 | `test_input` | `id` | `test_case_id` CASCADE | UNIQUE (кейс, параметр) |
 | `artifact` | `id` | `run_id` CASCADE | `kind` IN (ANALYSIS, TEST_CASES, COVERAGE, TESTS_SOURCE), UNIQUE (запуск, вид) |
+| `note` (добавлена в ЛР 12) | `id` | `run_id` CASCADE | `text` NOT NULL, CHECK (длина текста без пробелов > 0), индекс по (запуск, время) |
 | `scenario_type` | `id` | | `name` IN (POSITIVE, NEGATIVE, BOUNDARY) |
 | `case_origin` | `id` | | `name` IN (HEURISTIC, BOUNDARY, SEARCH) |
 

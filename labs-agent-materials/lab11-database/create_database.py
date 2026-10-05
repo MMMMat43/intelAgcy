@@ -128,12 +128,70 @@ def load_run(connection, run_dir, started_at, duration_ms, ordinal):
     return run_id
 
 
+DEMO_NOTES = (
+    ("run-orderprocessor-01", "2026-07-01T10:30:00Z",
+     "Покрытие ветвей 41 из 41. Значения у порогов 9/10, 99/100 и 4999/5000 подобраны из условий кода."),
+    ("run-orderprocessor-01", "2026-07-01T11:05:00Z",
+     "Сгенерированные тесты скомпилированы вместе с исходником и запущены: 68 из 68 прошли."),
+    ("run-samplestringutils-03", "2026-07-01T12:10:00Z",
+     "Ветвь с проверкой isDigit покрыта после добавления предикатов символов в экстрактор границ."),
+)
+
+
+def add_demo_notes(connection):
+    # Заметки к запускам (таблица note, ЛР 12): факты, проверенные при работе с этими запусками.
+    runs = {row[0] for row in connection.execute("SELECT id FROM run")}
+    for run_id, created_at, text in DEMO_NOTES:
+        if run_id in runs:
+            connection.execute("INSERT INTO note (run_id, created_at, text) VALUES (?, ?, ?)", (run_id, created_at, text))
+
+
+# Порядок таблиц в seed.sql: сначала родительские, затем зависимые (внешние ключи).
+SEED_ORDER = (
+    "project", "source_file", "run", "function_info", "branch",
+    "test_case", "test_input", "artifact", "note",
+)
+
+
+def sql_literal(value):
+    if value is None:
+        return "NULL"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def write_seed(connection, path):
+    # Справочники scenario_type и case_origin заполняет schema.sql, в seed они не входят.
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write("-- Данные получены из реальных запусков агента (analysis.json, test-cases.json, coverage.json).\n")
+        handle.write("-- Загружать после schema.sql; таблицы идут в порядке внешних ключей.\n")
+        handle.write("PRAGMA foreign_keys = ON;\nBEGIN TRANSACTION;\n")
+        for table in SEED_ORDER:
+            columns = [row[1] for row in connection.execute("PRAGMA table_info(%s)" % table)]
+            for row in connection.execute("SELECT %s FROM %s ORDER BY rowid" % (", ".join(columns), table)):
+                handle.write("INSERT INTO %s (%s) VALUES (%s);\n" % (
+                    table, ", ".join(columns), ", ".join(sql_literal(v) for v in row)))
+        handle.write("COMMIT;\n")
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runs", required=True)
+    parser.add_argument("--seed-only", action="store_true",
+                        help="не пересоздавать БД, только записать seed.sql из существующей БД")
+    parser.add_argument("--runs")
     parser.add_argument("--db", default=os.path.join(HERE, "agent_history.db"))
     parser.add_argument("--seed-out", default=os.path.join(HERE, "seed.sql"))
     args = parser.parse_args()
+
+    if args.seed_only:
+        connection = sqlite3.connect(args.db)
+        write_seed(connection, args.seed_out)
+        connection.close()
+        print("seed.sql записан из", args.db)
+        return 0
+    if not args.runs:
+        parser.error("нужен --runs (каталог с результатами запусков агента) или --seed-only")
 
     if os.path.exists(args.db):
         os.remove(args.db)
@@ -147,15 +205,10 @@ def main():
     for index, name in enumerate(run_dirs, 1):
         started = (base + datetime.timedelta(hours=index)).strftime("%Y-%m-%dT%H:%M:%SZ")
         load_run(connection, os.path.join(args.runs, name), started, 1500 * index, index)
+    add_demo_notes(connection)
     connection.commit()
 
-    with open(args.seed_out, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("-- Данные получены из реальных запусков агента (analysis.json, test-cases.json, coverage.json).\n")
-        handle.write("PRAGMA foreign_keys = ON;\nBEGIN TRANSACTION;\n")
-        for line in connection.iterdump():
-            if line.startswith("INSERT INTO") and not line.startswith(("INSERT INTO sqlite_sequence", "INSERT INTO \"sqlite_sequence\"")):
-                handle.write(line + "\n")
-        handle.write("COMMIT;\n")
+    write_seed(connection, args.seed_out)
     connection.close()
     print("База создана:", args.db)
 

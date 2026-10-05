@@ -85,7 +85,15 @@ CREATE TABLE IF NOT EXISTS artifact (
     UNIQUE (run_id, kind)
 );
 
+CREATE TABLE IF NOT EXISTS note (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id     TEXT NOT NULL REFERENCES run (id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    text       TEXT NOT NULL CHECK (length(trim(text)) > 0)
+);
+
 CREATE INDEX IF NOT EXISTS idx_run_project_started ON run (project_id, started_at);
+CREATE INDEX IF NOT EXISTS idx_note_run ON note (run_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_function_run ON function_info (run_id);
 CREATE INDEX IF NOT EXISTS idx_function_complexity ON function_info (complexity);
 CREATE INDEX IF NOT EXISTS idx_branch_function_state ON branch (function_id, state);

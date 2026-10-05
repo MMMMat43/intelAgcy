@@ -33,6 +33,21 @@ class RunRepositoryTest {
     }
 
     @Test
+    fun `in memory repository deletes runs together with their notes`() {
+        val repository = InMemoryRunRepository()
+        val run = repository.save(record("A.kt", Instant.parse("2026-01-01T10:00:00Z")))
+        repository.addNote(run.id, "first", Instant.parse("2026-01-02T10:00:00Z"))
+        repository.addNote(run.id, "second", Instant.parse("2026-01-01T12:00:00Z"))
+
+        assertEquals(listOf("second", "first"), repository.notes(run.id).map { it.text })
+        assertThrows<IllegalArgumentException> { repository.addNote("missing", "x", Instant.now()) }
+        assertTrue(repository.deleteById(run.id))
+        assertTrue(repository.notes(run.id).isEmpty())
+        assertEquals(0, repository.count())
+        assertTrue(!repository.deleteById(run.id))
+    }
+
+    @Test
     fun `runs are listed newest first`() {
         val repository = InMemoryRunRepository()
         repository.save(record("old.kt", Instant.parse("2026-01-01T10:00:00Z")))

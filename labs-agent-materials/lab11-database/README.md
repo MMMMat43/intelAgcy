@@ -37,4 +37,6 @@ py labs-agent-materials\lab11-database\make_er.py
 
 ## Результат проверки
 
-`PRAGMA integrity_check`: `ok`. `PRAGMA foreign_key_check`: 0 нарушений. Строки в таблицах: `project` 3, `source_file` 3, `run` 3, `function_info` 9, `branch` 55, `test_case` 92, `test_input` 199, `artifact` 12, справочники по 3.
+`PRAGMA integrity_check`: `ok`. `PRAGMA foreign_key_check`: 0 нарушений. Строки в таблицах: `project` 3, `source_file` 3, `run` 3, `function_info` 9, `branch` 55, `test_case` 92, `test_input` 199, `artifact` 12, `note` 3, справочники по 3.
+
+Таблица `note` (заметки к запускам) добавлена в ЛР 12 для приложения «Журнал запусков генерации тестов». `seed.sql` записан в порядке внешних ключей и загружается после `schema.sql`; команда `py create_database.py --seed-only` перезаписывает его из текущей базы.

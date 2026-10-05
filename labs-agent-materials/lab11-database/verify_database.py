@@ -37,5 +37,9 @@ for index, query in enumerate(queries, 1):
     if not rows and "Q3." not in query and "Q4." not in query:
         ok = False
 
+orphans = connection.execute("SELECT COUNT(*) FROM note n LEFT JOIN run r ON r.id = n.run_id WHERE r.id IS NULL").fetchone()[0]
+print("\nЗаметки без запуска:", orphans)
+ok &= orphans == 0
+
 print("\nРезультат:", "OK" if ok else "ОШИБКА")
 sys.exit(0 if ok else 1)
